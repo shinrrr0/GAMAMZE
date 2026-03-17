@@ -13,9 +13,11 @@ public class CharacterGenerator2DEditor : Editor
         CharacterGenerator2D generator = (CharacterGenerator2D)target;
 
         EditorGUILayout.HelpBox(
-            $"Faces: {generator.FaceCount}\nClothes: {generator.ClothesCount}\nHeads: {generator.HeadCount}",
+            $"Cards: {generator.CardCount}\nFaces: {generator.FaceCount}\nClothes: {generator.ClothesCount}\nHeads: {generator.HeadCount}",
             MessageType.Info
         );
+
+        GUILayout.Space(4);
 
         if (GUILayout.Button("Reload Sprites From Folders", GUILayout.Height(30)))
         {
@@ -23,13 +25,19 @@ public class CharacterGenerator2DEditor : Editor
             EditorUtility.SetDirty(generator);
         }
 
-        if (GUILayout.Button("Generate Unique Characters", GUILayout.Height(30)))
+        if (GUILayout.Button("Find Card Images", GUILayout.Height(26)))
         {
-            generator.GenerateUniqueCharacters();
+            generator.FindCardImages();
             EditorUtility.SetDirty(generator);
         }
 
-        if (GUILayout.Button("Clear Generated Characters", GUILayout.Height(26)))
+        if (GUILayout.Button("Generate UI Characters", GUILayout.Height(30)))
+        {
+            generator.GenerateUICharacters();
+            EditorUtility.SetDirty(generator);
+        }
+
+        if (GUILayout.Button("Clear UI Characters", GUILayout.Height(26)))
         {
             generator.ClearGeneratedCharacters();
             EditorUtility.SetDirty(generator);
