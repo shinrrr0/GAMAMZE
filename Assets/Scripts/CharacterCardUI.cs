@@ -59,12 +59,21 @@ public class CharacterCardUI : MonoBehaviour
 
     private ActionOption[] currentPlayerActions = Array.Empty<ActionOption>();
     private ActionOption[] currentAiActions = Array.Empty<ActionOption>();
+    private bool fieldsSearched = false;
 
     public void Apply(CharacterData data)
     {
-        if (faceImage != null) faceImage.sprite = data.face;
-        if (clothesImage != null) clothesImage.sprite = data.clothes;
-        if (headImage != null) headImage.sprite = data.head;
+        // Первый раз ищем поля
+        if (!fieldsSearched)
+        {
+            AutoFindFields();
+            fieldsSearched = true;
+        }
+
+        // Если спрайты не переданы - не перезаписываем уже установленные (например, сгенерированные другим скриптом)
+        if (faceImage != null && data.face != null) faceImage.sprite = data.face;
+        if (clothesImage != null && data.clothes != null) clothesImage.sprite = data.clothes;
+        if (headImage != null && data.head != null) headImage.sprite = data.head;
 
         if (nameText != null)
             nameText.text = data.characterName ?? string.Empty;
@@ -78,20 +87,86 @@ public class CharacterCardUI : MonoBehaviour
         SetupAiDropdown(data.aiActions);
     }
 
+    private void AutoFindFields()
+    {
+        // Ищем Name через GetComponentsInChildren
+        if (nameText == null)
+        {
+            TMP_Text[] allTexts = GetComponentsInChildren<TMP_Text>();
+            foreach (var txt in allTexts)
+            {
+                if (txt.gameObject.name == "Name" || txt.gameObject.name.Contains("Name"))
+                {
+                    nameText = txt;
+                    Debug.Log($"[CharacterCardUI] Found nameText: {txt.gameObject.name}");
+                    break;
+                }
+            }
+        }
+
+        // Ищем skillTexts: сначала ищем контейнер "Skills and Perks", потом его дочерних элементов
+        if (skillTexts == null || skillTexts.Length == 0)
+        {
+            Transform skillsContainer = transform.Find("Skills and Perks");
+            
+            if (skillsContainer != null)
+            {
+                // Находим все TMP_Text компоненты в контейнере
+                List<TMP_Text> foundSkills = new List<TMP_Text>();
+                TMP_Text[] skillsInContainer = skillsContainer.GetComponentsInChildren<TMP_Text>();
+                
+                foreach (var txt in skillsInContainer)
+                {
+                    // Пропускаем если это заголовок или описание по другим признакам
+                    if (!txt.gameObject.name.Contains("Description") && 
+                        !txt.gameObject.name.Contains("Header") &&
+                        !txt.gameObject.name.Contains("Label"))
+                    {
+                        foundSkills.Add(txt);
+                        Debug.Log($"[CharacterCardUI] Found skill field: {txt.gameObject.name}");
+                    }
+                }
+                
+                if (foundSkills.Count > 0)
+                {
+                    skillTexts = foundSkills.ToArray();
+                    Debug.Log($"[CharacterCardUI] Total skill fields found: {skillTexts.Length}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[CharacterCardUI] 'Skills and Perks' контейнер не найден!");
+            }
+        }
+
+        Debug.Log($"[CharacterCardUI] AutoFind: nameText={nameText?.gameObject.name}, skillTexts={skillTexts?.Length ?? 0}");
+    }
+
     private void ApplySkills(string[] skills)
     {
         if (skillTexts == null)
+        {
+            Debug.LogWarning("[CharacterCardUI] skillTexts is NULL!");
             return;
+        }
 
+        Debug.Log($"[CharacterCardUI] ApplySkills: skills count={skills?.Length ?? 0}, skillTexts count={skillTexts.Length}");
+        
         for (int i = 0; i < skillTexts.Length; i++)
         {
             if (skillTexts[i] == null)
                 continue;
 
             if (skills != null && i < skills.Length)
+            {
                 skillTexts[i].text = skills[i];
+                Debug.Log($"[CharacterCardUI] skillTexts[{i}] = '{skills[i]}'");
+            }
             else
+            {
                 skillTexts[i].text = string.Empty;
+                Debug.Log($"[CharacterCardUI] skillTexts[{i}] = '' (empty)");
+            }
         }
     }
 
