@@ -67,5 +67,10 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "My project.slnx"
+    "dotnet.defaultSolution": "My project.slnx",
+    "vscode-pets.petSize": "medium",
+    "vscode-pets.petType": "fox",
+    "vscode-pets.petColor": "black",
+    "vscode-pets.position": "explorer",
+    "vscode-pets.theme": "forest"
 }

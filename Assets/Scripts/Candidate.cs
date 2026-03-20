@@ -1,6 +1,68 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// Делегат для функции механики способности
+public delegate void AbilityFunction();
+
+[System.Serializable]
+public class Ability
+{
+    public string name;
+    public Sprite icon;
+    
+    [TextArea(2, 4)]
+    public string description;
+    
+    // Ссылка на функцию, которая исполняет механику способности
+    // Хранится как строка имени метода для сериализации
+    [SerializeField]
+    private string functionName;
+    
+    // Кэшированная ссылка на функцию
+    private AbilityFunction cachedFunction;
+    
+    public Ability()
+    {
+        name = "New Ability";
+        icon = null;
+        description = "";
+        functionName = "";
+        cachedFunction = null;
+    }
+    
+    public Ability(string name, Sprite icon, string description)
+    {
+        this.name = name;
+        this.icon = icon;
+        this.description = description;
+        this.functionName = "";
+        this.cachedFunction = null;
+    }
+    
+    /// <summary>
+    /// Устанавливает функцию, которая будет вызываться при использовании способности
+    /// </summary>
+    public void SetFunction(AbilityFunction function)
+    {
+        cachedFunction = function;
+    }
+    
+    /// <summary>
+    /// Исполняет механику способности
+    /// </summary>
+    public void Execute()
+    {
+        if (cachedFunction != null)
+        {
+            cachedFunction.Invoke();
+        }
+        else
+        {
+            Debug.LogWarning($"[Ability] Функция для способности '{name}' не установлена!");
+        }
+    }
+}
+
 [System.Serializable]
 public class Candidate
 {
@@ -10,7 +72,7 @@ public class Candidate
     private int intellect;
     private int money;
     private int willpower;
-    private List<string> abilities;
+    private List<Ability> abilities;
     private string background;
     // Свойства
     public string Name
@@ -49,7 +111,7 @@ public class Candidate
         set { willpower = value; }
     }
 
-    public List<string> Abilities
+    public List<Ability> Abilities
     {
         get { return abilities; }
         set { abilities = value; }
@@ -77,7 +139,7 @@ public class Candidate
     }
 
     // тут заданные данные
-    public Candidate(string name, int age, int influence, int intellect, int money, int willpower, List<string> abilities, string background)
+    public Candidate(string name, int age, int influence, int intellect, int money, int willpower, List<Ability> abilities, string background)
     {
         Name = name;
         Age = age;
@@ -85,7 +147,7 @@ public class Candidate
         Intellect = intellect;
         Money = money;
         Willpower = willpower;
-        Abilities = abilities ?? new List<string>();
+        Abilities = abilities ?? new List<Ability>();
         Background = background;
     }
 
@@ -99,22 +161,27 @@ public class Candidate
         return first + " " + last;
     }
 
-    private static List<string> GenerateRandomAbilities()
+    private static List<Ability> GenerateRandomAbilities()
     {
-        var allAbilities = new[] 
+        var abilityNames = new[] 
         { 
             "Переговоры", "Лидерство", "Стратегия", "Экономика",
             "Дипломатия", "Интриги", "Медицина", "Техника",
             "Разведка", "Риторика", "Благосостояние", "Наука"
         };
         
-        var abilities = new List<string>();
+        var abilities = new List<Ability>();
         
         // Берем 2 случайных способности
         for (int i = 0; i < 2; i++)
         {
-            int randomIndex = Random.Range(0, allAbilities.Length);
-            abilities.Add(allAbilities[randomIndex]);
+            int randomIndex = Random.Range(0, abilityNames.Length);
+            Ability newAbility = new Ability(
+                abilityNames[randomIndex],
+                null, // иконка будет заполнена позже или через инспектор
+                "Описание способности будет добавлено" // описание
+            );
+            abilities.Add(newAbility);
         }
         
         return abilities;
@@ -127,8 +194,14 @@ public class Candidate
 
     public override string ToString()
     {
+        var abilityNames = new List<string>();
+        foreach (var ability in Abilities)
+        {
+            abilityNames.Add(ability.name);
+        }
+        
         return $"{Name}, {Age} лет — Влияние {Influence}, Интеллект {Intellect}, Деньги {Money}, Воля {Willpower}\n" +
-               $"Умения: {string.Join(", ", Abilities)}\n" +
+               $"Умения: {string.Join(", ", abilityNames)}\n" +
                $"Бэкграунд: {Background}";
     }
 }

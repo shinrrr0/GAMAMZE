@@ -68,6 +68,13 @@ public class CandidateCardsController : MonoBehaviour
         {
             Candidate candidate = new Candidate();
 
+            // Собираем названия способностей для отображения
+            string[] abilityNames = new string[candidate.Abilities.Count];
+            for (int j = 0; j < candidate.Abilities.Count; j++)
+            {
+                abilityNames[j] = candidate.Abilities[j].name;
+            }
+
             CharacterData data = new CharacterData
             {
                 characterName = candidate.Name,
@@ -79,12 +86,15 @@ public class CandidateCardsController : MonoBehaviour
                     $"Воля: {candidate.Willpower}",
                     $"Деньги: {candidate.Money}"
                 },
+                // Передаем способности в CharacterData
+                abilities = candidate.Abilities.ToArray(),
                 hp = candidate.Influence,
                 insanity = candidate.Intellect,
                 age = candidate.Age
             };
 
             Debug.Log($"[CandidateCardsController] Кандидат {i}: {candidate.Name}");
+            Debug.Log($"[CandidateCardsController] Способности: {string.Join(", ", abilityNames)}");
             cardUIs[i].Apply(data);
         }
     }

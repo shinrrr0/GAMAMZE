@@ -22,6 +22,9 @@ public class CharacterData
 
     public string characterName;
     public string[] skills;
+    
+    // Способности кандидата
+    public Ability[] abilities;
 
     public ActionOption[] playerActions;
     public ActionOption[] aiActions;
