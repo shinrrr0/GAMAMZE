@@ -37,11 +37,33 @@ public class President : MonoBehaviour
         }
 
         insanity += 1;
+        
+        // 25% шанс добавить новый кризис
+        if (Random.Range(0, 101) <= 25)
+        {
+            AddRandomCrisis();
+        }
 
-        LogToText($"Ход {turnCount}: Возраст {age}, HP {hp}, Безумие {insanity}");
+        LogToText($"Ход {turnCount}: Возраст {age}, HP {hp}, Безумие {insanity}, Кризисов {activeCrises.Count}");
         
         UpdateUI(); // Обновляем цифры на экране
         CheckGameOver(); // Проверяем, не умер ли президент
+    }
+    
+    private void AddRandomCrisis()
+    {
+        // Используем CrisisDatabase для получения случайного кризиса
+        Crisis randomCrisis = CrisisDatabase.GetRandomCrisis();
+        
+        if (randomCrisis != null)
+        {
+            activeCrises.Add(randomCrisis);
+            LogToText($"Новый кризис: {randomCrisis.name}");
+        }
+        else
+        {
+            Debug.LogError("[President] CrisisDatabase вернул null!");
+        }
     }
 
     void UpdateUI()

@@ -9,6 +9,7 @@ public class Ability
 {
     public string name;
     public Sprite icon;
+    public Color color = Color.red; // Цвет для отображения спрайта
     
     [TextArea(2, 4)]
     public string description;
@@ -25,15 +26,17 @@ public class Ability
     {
         name = "New Ability";
         icon = null;
+        color = Color.red;
         description = "";
         functionName = "";
         cachedFunction = null;
     }
     
-    public Ability(string name, Sprite icon, string description)
+    public Ability(string name, Sprite icon, string description, Color color = default)
     {
         this.name = name;
         this.icon = icon;
+        this.color = color != default ? color : Color.red;
         this.description = description;
         this.functionName = "";
         this.cachedFunction = null;
@@ -163,28 +166,13 @@ public class Candidate
 
     private static List<Ability> GenerateRandomAbilities()
     {
-        var abilityNames = new[] 
-        { 
-            "Переговоры", "Лидерство", "Стратегия", "Экономика",
-            "Дипломатия", "Интриги", "Медицина", "Техника",
-            "Разведка", "Риторика", "Благосостояние", "Наука"
-        };
+        // Инициализируем базу данных способностей
+        AbilityDatabase.Initialize();
         
-        var abilities = new List<Ability>();
+        // Берем от 1 до 3 случайных способностей из базы данных
+        int abilityCount = Random.Range(1, 4); // 1, 2 или 3
         
-        // Берем 2 случайных способности
-        for (int i = 0; i < 2; i++)
-        {
-            int randomIndex = Random.Range(0, abilityNames.Length);
-            Ability newAbility = new Ability(
-                abilityNames[randomIndex],
-                null, // иконка будет заполнена позже или через инспектор
-                "Описание способности будет добавлено" // описание
-            );
-            abilities.Add(newAbility);
-        }
-        
-        return abilities;
+        return AbilityDatabase.GetRandomAbilities(abilityCount);
     }
 
     private static string GenerateRandomBackground()

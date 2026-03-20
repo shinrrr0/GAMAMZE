@@ -32,6 +32,7 @@ public class CharacterData
     public int hp;
     public int insanity;
     public int age;
+    public int abilityCount; // Количество способностей для отображения кружков
 }
 
 public class CharacterCardUI : MonoBehaviour
@@ -55,6 +56,10 @@ public class CharacterCardUI : MonoBehaviour
     [SerializeField] private Image[] hpDots;
     [SerializeField] private Image[] insanityDots;
     [SerializeField] private Image[] ageDots;
+    [SerializeField] private Image[] abilityDots; // Кружки для отображения способностей
+
+    [Header("Ability Tooltip")]
+    [SerializeField] private AbilityTooltip abilityTooltip;
 
     [Header("Dot colors")]
     [SerializeField] private Color activeDotColor = Color.red;
@@ -62,6 +67,7 @@ public class CharacterCardUI : MonoBehaviour
 
     private ActionOption[] currentPlayerActions = Array.Empty<ActionOption>();
     private ActionOption[] currentAiActions = Array.Empty<ActionOption>();
+    private Ability[] currentAbilities = Array.Empty<Ability>();
     private bool fieldsSearched = false;
 
     public void Apply(CharacterData data)
@@ -85,6 +91,10 @@ public class CharacterCardUI : MonoBehaviour
         ApplyDots(hpDots, data.hp);
         ApplyDots(insanityDots, data.insanity);
         ApplyDots(ageDots, data.age);
+        
+        // Сохраняем способности и отображаем кружки
+        currentAbilities = data.abilities ?? Array.Empty<Ability>();
+        ApplyAbilityDots();
 
         SetupPlayerDropdown(data.playerActions);
         SetupAiDropdown(data.aiActions);
@@ -142,7 +152,101 @@ public class CharacterCardUI : MonoBehaviour
             }
         }
 
-        Debug.Log($"[CharacterCardUI] AutoFind: nameText={nameText?.gameObject.name}, skillTexts={skillTexts?.Length ?? 0}");
+        // Ищем abilityDots: генерируем их динамически
+        if (abilityDots == null || abilityDots.Length == 0)
+        {
+            GenerateAbilityDots();
+        }
+
+        Debug.Log($"[CharacterCardUI] AutoFind: nameText={nameText?.gameObject.name}, skillTexts={skillTexts?.Length ?? 0}, abilityDots={abilityDots?.Length ?? 0}");
+    }
+
+    /// <summary>
+    /// Генерирует кружки для способностей программно
+    /// </summary>
+    private void GenerateAbilityDots()
+    {
+        Transform perksContainer = transform.Find("Skill and Perks/Perks");
+        if (perksContainer == null)
+            perksContainer = transform.Find("Skills and Perks/Perks");
+        
+        if (perksContainer == null)
+        {
+            Debug.LogWarning("[CharacterCardUI] Perks container not found");
+            return;
+        }
+        
+        const int maxDots = 3;
+        List<Image> dotsList = new List<Image>();
+        
+        // Переиспользуем существующие Image компоненты
+        for (int i = 0; i < perksContainer.childCount; i++)
+        {
+            Image img = perksContainer.GetChild(i).GetComponent<Image>();
+            if (img != null)
+            {
+                dotsList.Add(img);
+                Debug.Log($"[CharacterCardUI] Found existing perk dot: {perksContainer.GetChild(i).gameObject.name}");
+            }
+        }
+        
+        // Если недостаточно, создаём новые
+        while (dotsList.Count < maxDots)
+        {
+            GameObject dotObj = new GameObject($"Perk_{dotsList.Count}");
+            RectTransform rectTransform = dotObj.AddComponent<RectTransform>();
+            rectTransform.SetParent(perksContainer, false);
+            rectTransform.sizeDelta = new Vector2(30, 30);
+            rectTransform.anchoredPosition = new Vector2(40 * dotsList.Count, 0);
+            
+            Image img = dotObj.AddComponent<Image>();
+            img.color = activeDotColor;
+            
+            // Добавляем Button компонент для обработки кликов
+            Button btn = dotObj.AddComponent<Button>();
+            btn.targetGraphic = img;
+            
+            dotsList.Add(img);
+            Debug.Log($"[CharacterCardUI] Created ability dot: {dotObj.name}");
+        }
+        
+        abilityDots = dotsList.ToArray();
+        SetupAbilityDotClickHandlers();
+        Debug.Log($"[CharacterCardUI] Total ability dots: {abilityDots.Length}");
+    }
+
+    /// <summary>
+    /// Привязывает обработчики кликов к кружкам способностей
+    /// </summary>
+    private void SetupAbilityDotClickHandlers()
+    {
+        if (abilityDots == null || abilityTooltip == null)
+            return;
+
+        for (int i = 0; i < abilityDots.Length; i++)
+        {
+            int index = i; // Локальная копия для замыкания
+            Button btn = abilityDots[i].GetComponent<Button>();
+            
+            if (btn != null)
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => OnAbilityDotClicked(index));
+                Debug.Log($"[CharacterCardUI] Setup click handler for ability dot {index}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Вызывается при клике на кружок способности
+    /// </summary>
+    private void OnAbilityDotClicked(int abilityIndex)
+    {
+        if (abilityIndex < 0 || abilityIndex >= currentAbilities.Length)
+            return;
+
+        abilityTooltip.ShowAbility(currentAbilities[abilityIndex]);
+        Debug.Log($"[CharacterCardUI] Clicked on ability: {currentAbilities[abilityIndex].name}");
     }
 
     private void ApplySkills(string[] skills)
@@ -263,5 +367,35 @@ public class CharacterCardUI : MonoBehaviour
         }
 
         aiActionDescriptionText.text = currentAiActions[index].description;
+    }
+
+    /// <summary>
+    /// Отображает способности кандидата как кружки (включает/выключает их)
+    /// </summary>
+    /// <summary>
+    /// Отображает способности кандидата как кружки с их цветами (включает/выключает их)
+    /// </summary>
+    private void ApplyAbilityDots()
+    {
+        if (abilityDots == null)
+            return;
+
+        for (int i = 0; i < abilityDots.Length; i++)
+        {
+            if (abilityDots[i] == null)
+                continue;
+
+            if (i < currentAbilities.Length)
+            {
+                // Включаем кружок и устанавливаем цвет из способности
+                abilityDots[i].gameObject.SetActive(true);
+                abilityDots[i].color = currentAbilities[i].color;
+            }
+            else
+            {
+                // Отключаем неиспользуемые кружки
+                abilityDots[i].gameObject.SetActive(false);
+            }
+        }
     }
 }   

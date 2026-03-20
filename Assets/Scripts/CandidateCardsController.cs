@@ -88,6 +88,7 @@ public class CandidateCardsController : MonoBehaviour
                 },
                 // Передаем способности в CharacterData
                 abilities = candidate.Abilities.ToArray(),
+                abilityCount = candidate.Abilities.Count, // Количество способностей для отображения кружков
                 hp = candidate.Influence,
                 insanity = candidate.Intellect,
                 age = candidate.Age
