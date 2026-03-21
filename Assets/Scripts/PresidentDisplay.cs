@@ -47,10 +47,6 @@ public class PresidentDisplay : MonoBehaviour
         }
 
         // Закрываем tooltip при обновлении хода
-        if (abilityTooltip != null)
-            abilityTooltip.Close();
-        if (crisisTooltip != null)
-            crisisTooltip.Close();
 
         if (hpText == null || insanityText == null || ageText == null || turnText == null) 
         {
@@ -173,80 +169,70 @@ public class PresidentDisplay : MonoBehaviour
     /// Расширяет массив кризис-дотов когда активных кризисов больше чем дотов
     /// </summary>
     private void ExpandCrisisDots()
+{
+    Transform crisisContainer = transform.Find("CrisisInfoRoot");
+
+    if (crisisContainer == null)
     {
-        Transform crisisContainer = transform.Find("CrisisInfoRoot");
-        
+        crisisContainer = transform.Find("Crisis");
+
         if (crisisContainer == null)
-        {
-            crisisContainer = transform.Find("Crisis");
-            
-            if (crisisContainer == null)
-            {
-                crisisContainer = transform.Find("Crises");
-            }
-        }
-        
-        if (crisisContainer == null)
-            return;
-
-        // Расширяем массив
-        List<Image> dotsList = new List<Image>(crisisImages);
-
-        // Создаем новые доты до нужного количества
-        int newDotsNeeded = presidentData.activeCrises.Count - crisisImages.Length;
-        for (int i = 0; i < newDotsNeeded; i++)
-        {
-            int index = crisisImages.Length + i;
-            GameObject dotGO = new GameObject($"CrisisDot_{index}");
-            dotGO.transform.SetParent(crisisContainer, false);
-
-            RectTransform rectTransform = dotGO.AddComponent<RectTransform>();
-            rectTransform.sizeDelta = new Vector2(50, 50);
-            rectTransform.anchoredPosition = new Vector2(index * 60, 0);
-
-            Image img = dotGO.AddComponent<Image>();
-            img.color = Color.white;
-
-            dotsList.Add(img);
-        }
-
-        crisisImages = dotsList.ToArray();
+            crisisContainer = transform.Find("Crises");
     }
+
+    if (crisisContainer == null)
+        return;
+
+    List<Image> dotsList = new List<Image>(crisisImages);
+
+    int newDotsNeeded = presidentData.activeCrises.Count - crisisImages.Length;
+    for (int i = 0; i < newDotsNeeded; i++)
+    {
+        int index = crisisImages.Length + i;
+        GameObject dotGO = new GameObject($"CrisisDot_{index}");
+        dotGO.transform.SetParent(crisisContainer, false);
+
+        RectTransform rectTransform = dotGO.AddComponent<RectTransform>();
+        rectTransform.sizeDelta = new Vector2(50, 50);
+
+        Image img = dotGO.AddComponent<Image>();
+        img.color = Color.white;
+
+        Button btn = dotGO.AddComponent<Button>();
+        btn.targetGraphic = img;
+
+        dotsList.Add(img);
+    }
+
+    crisisImages = dotsList.ToArray();
+}
 
     /// <summary>
     /// Устанавливает click handlers для иконок кризисов
     /// </summary>
-    private void SetupCrisisDotClickHandlers()
+private void SetupCrisisDotClickHandlers()
+{
+    if (crisisImages == null || crisisImages.Length == 0)
+        return;
+
+    for (int i = 0; i < crisisImages.Length; i++)
     {
-        if (crisisImages == null || crisisImages.Length == 0)
+        if (crisisImages[i] == null)
+            continue;
+
+        int index = i;
+        Button btn = crisisImages[i].GetComponent<Button>();
+
+        if (btn == null)
         {
-            Debug.LogWarning("[PresidentDisplay] crisisImages is empty or not initialized");
-            return;
+            btn = crisisImages[i].gameObject.AddComponent<Button>();
+            btn.targetGraphic = crisisImages[i];
         }
 
-        for (int i = 0; i < crisisImages.Length; i++)
-        {
-            if (crisisImages[i] == null)
-            {
-                Debug.LogWarning($"[PresidentDisplay] crisisImages[{i}] is NULL");
-                continue;
-            }
-
-            int index = i; // Локальная копия для замыкания
-            Button btn = crisisImages[i].GetComponent<Button>();
-            
-            if (btn != null)
-            {
-                btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(() => OnCrisisDotClicked(index));
-                Debug.Log($"[PresidentDisplay] Setup click handler for crisis dot {index}");
-            }
-            else
-            {
-                Debug.LogWarning($"[PresidentDisplay] Crisis dot {i} doesn't have Button component! Add it in the scene.");
-            }
-        }
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() => OnCrisisDotClicked(index));
     }
+}
 
     /// <summary>
     /// Обработчик клика по иконке кризиса
@@ -271,3 +257,4 @@ public class PresidentDisplay : MonoBehaviour
         }
     }
 }
+
