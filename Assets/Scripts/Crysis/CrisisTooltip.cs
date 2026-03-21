@@ -26,7 +26,7 @@ public class CrisisTooltip : MonoBehaviour
         if (panelImage != null)
         {
             panelImage.color = panelBackgroundColor;
-            panelImage.type = Image.Type.Simple;
+            panelImage.type = Image.Type.Sliced;
         }
         else
         {

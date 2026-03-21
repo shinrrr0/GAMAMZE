@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
-using TMPro; // Добавьте это, если используете TextMeshPro
-using UnityEngine.UI; // А это, если используете обычный UI Text
+using TMPro;
+using UnityEngine.UI;
 
 public class President : MonoBehaviour
 {
@@ -10,19 +10,18 @@ public class President : MonoBehaviour
     public int age = 40;
     public int turnCount = 1;
 
-    // Ссылка на текстовое поле в Unity
-    public TextMeshProUGUI turnCountText; 
-    // Ссылка на кнопку, чтобы её выключить в конце игры
-    public Button nextTurnButton; 
+    public TextMeshProUGUI turnCountText;
+    public Button nextTurnButton;
 
-    // Было: public List<string> activeCrises;
-    // Нужно:
-    public List<Crisis> activeCrises = new List<Crisis>(); 
+    public List<Crisis> activeCrises = new List<Crisis>();
 
+    [Header("UI")]
+    [SerializeField] private CrisisTooltip crisisTooltip;
 
-    void Start()
+    private void Start()
     {
-        UpdateUI(); // Обновляем текст при старте игры
+        CrisisDatabase.Initialize();
+        UpdateUI();
     }
 
     public void NextTurn()
@@ -37,50 +36,56 @@ public class President : MonoBehaviour
         }
 
         insanity += 1;
-        
+
         // 25% шанс добавить новый кризис
-        if (Random.Range(0, 101) <= 25)
+        if (Random.Range(0, 101) <= 15 + (insanity * 2))
         {
             AddRandomCrisis();
         }
 
         LogToText($"Ход {turnCount}: Возраст {age}, HP {hp}, Безумие {insanity}, Кризисов {activeCrises.Count}");
-        
-        UpdateUI(); // Обновляем цифры на экране
-        CheckGameOver(); // Проверяем, не умер ли президент
+
+        UpdateUI();
+        CheckGameOver();
     }
-    
+
     private void AddRandomCrisis()
     {
-        // Используем CrisisDatabase для получения случайного кризиса
         Crisis randomCrisis = CrisisDatabase.GetRandomCrisis();
-        
-        if (randomCrisis != null)
+
+        if (randomCrisis == null)
         {
-            activeCrises.Add(randomCrisis);
-            LogToText($"Новый кризис: {randomCrisis.name}");
+            Debug.LogError("[President] CrisisDatabase вернул null!");
+            return;
+        }
+
+        activeCrises.Add(randomCrisis);
+        LogToText($"Новый кризис: {randomCrisis.name}");
+
+        if (crisisTooltip != null)
+        {
+            crisisTooltip.ShowCrisis(randomCrisis);
         }
         else
         {
-            Debug.LogError("[President] CrisisDatabase вернул null!");
+            Debug.LogWarning("[President] CrisisTooltip не привязан в инспекторе.");
         }
     }
 
-    void UpdateUI()
+    private void UpdateUI()
     {
         if (turnCountText != null)
             turnCountText.text = "Ход: " + turnCount;
     }
 
-    void CheckGameOver()
+    private void CheckGameOver()
     {
         if (hp <= 0)
         {
             LogToText("Игра окончена: Президент скончался.");
+
             if (nextTurnButton != null)
-                nextTurnButton.interactable = false; // Блокируем кнопку
-            
-            // Здесь можно вызвать загрузку сцены меню или показать панель Game Over
+                nextTurnButton.interactable = false;
         }
     }
 
