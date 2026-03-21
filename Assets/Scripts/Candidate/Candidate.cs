@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 // Делегат для функции механики способности
@@ -14,11 +15,6 @@ public class Ability
     [TextArea(2, 4)]
     public string description;
     
-    // Ссылка на функцию, которая исполняет механику способности
-    // Хранится как строка имени метода для сериализации
-    [SerializeField]
-    private string functionName;
-    
     // Кэшированная ссылка на функцию
     private AbilityFunction cachedFunction;
     
@@ -28,7 +24,6 @@ public class Ability
         icon = null;
         color = Color.red;
         description = "";
-        functionName = "";
         cachedFunction = null;
     }
     
@@ -38,7 +33,6 @@ public class Ability
         this.icon = icon;
         this.color = color != default ? color : Color.red;
         this.description = description;
-        this.functionName = "";
         this.cachedFunction = null;
     }
     
@@ -173,6 +167,105 @@ public class Candidate
         int abilityCount = Random.Range(1, 4); // 1, 2 или 3
         
         return AbilityDatabase.GetRandomAbilities(abilityCount);
+    }
+
+    public bool NoCrisisNextTurn { get; set; }
+
+    public bool HasAbility(string abilityName)
+    {
+        if (Abilities == null || string.IsNullOrWhiteSpace(abilityName))
+            return false;
+
+        return Abilities.Any(a => a != null && a.name != null && a.name.Equals(abilityName, System.StringComparison.OrdinalIgnoreCase));
+    }
+
+    public void AddAbility(string abilityName)
+    {
+        if (string.IsNullOrWhiteSpace(abilityName))
+            return;
+
+        if (Abilities == null)
+            Abilities = new List<Ability>();
+
+        if (HasAbility(abilityName))
+            return;
+
+        Ability fromDb = AbilityDatabase.GetAllAbilities().FirstOrDefault(a => a.name.Equals(abilityName, System.StringComparison.OrdinalIgnoreCase));
+        if (fromDb != null)
+        {
+            Abilities.Add(new Ability(fromDb.name, fromDb.icon, fromDb.description, fromDb.color));
+        }
+        else
+        {
+            Abilities.Add(new Ability(abilityName, null, $"Автоматически добавлена способность '{abilityName}'", Color.white));
+        }
+
+        Debug.Log($"[Candidate] {Name} получил способность '{abilityName}'");
+    }
+
+    public bool RemoveAbility(string abilityName)
+    {
+        if (Abilities == null || string.IsNullOrWhiteSpace(abilityName))
+            return false;
+
+        Ability ab = Abilities.FirstOrDefault(a => a != null && a.name != null && a.name.Equals(abilityName, System.StringComparison.OrdinalIgnoreCase));
+        if (ab != null)
+        {
+            Abilities.Remove(ab);
+            Debug.Log($"[Candidate] {Name} потерял способность '{abilityName}'");
+            return true;
+        }
+
+        return false;
+    }
+
+    public void ExecuteAbility(string abilityName)
+    {
+        if (Abilities == null || string.IsNullOrWhiteSpace(abilityName))
+            return;
+
+        Ability ab = Abilities.FirstOrDefault(a => a != null && a.name != null && a.name.Equals(abilityName, System.StringComparison.OrdinalIgnoreCase));
+        if (ab != null)
+        {
+            ab.Execute();
+        }
+        else
+        {
+            Debug.LogWarning($"[Candidate] {Name} не найдено действие '{abilityName}' для исполнения");
+        }
+    }
+
+    public void BindAbilitiesToActions()
+    {
+        if (Abilities == null)
+            return;
+
+        foreach (var ability in Abilities)
+        {
+            if (ability == null || string.IsNullOrEmpty(ability.name))
+                continue;
+
+            switch (ability.name)
+            {
+                case "Воровство":
+                    ability.SetFunction(() => CandidateActions.Steal(this));
+                    break;
+                case "Лобирование":
+                    ability.SetFunction(() => CandidateActions.Lobby(this));
+                    break;
+                case "Обращение важное":
+                    ability.SetFunction(() => CandidateActions.MajorAppeal(this, 0));
+                    break;
+                case "Интриги":
+                    ability.SetFunction(() => Debug.LogWarning("[Candidate] Интриги требуют кандидата-цели: используйте CandidateActions.Intrigue(actor, target)."));
+                    break;
+                case "Дебаты":
+                    ability.SetFunction(() => Debug.LogWarning("[Candidate] Дебаты требуют оппонента: используйте CandidateActions.Debate(actor, opponent)."));
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     private static string GenerateRandomBackground()

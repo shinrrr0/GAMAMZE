@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -15,11 +16,17 @@ public class CandidateCardsController : MonoBehaviour
         Debug.Log("[CandidateCardsController] Start() called!");
         if (generateOnStart)
         {
-            Debug.Log("[CandidateCardsController] generateOnStart = true, вызываю GenerateCandidates()");
-            GenerateCandidates();
+            Debug.Log("[CandidateCardsController] generateOnStart = true, отлаживаю GenerateCandidates() на первый фрейм");
+            StartCoroutine(GenerateCandidatesNextFrame());
         }
         else
             Debug.Log("[CandidateCardsController] generateOnStart = false, пропускаю генерацию");
+    }
+
+    private IEnumerator GenerateCandidatesNextFrame()
+    {
+        yield return null; // Ждём следующего фрейма
+        GenerateCandidates();
     }
 
     [ContextMenu("Generate Candidates")]
@@ -75,6 +82,45 @@ public class CandidateCardsController : MonoBehaviour
                 abilityNames[j] = candidate.Abilities[j].name;
             }
 
+            // Подготавливаем доступные действия для игрока — из текущих способностей кандидата
+            List<ActionOption> playerActionsForCard = new List<ActionOption>();
+            foreach (var ability in candidate.Abilities)
+            {
+                if (ability == null || string.IsNullOrEmpty(ability.name))
+                    continue;
+
+                playerActionsForCard.Add(new ActionOption
+                {
+                    title = ability.name,
+                    description = ability.description
+                });
+            }
+
+            // Если способностей нет, добавим базовые для теста
+            if (playerActionsForCard.Count == 0)
+            {
+                playerActionsForCard.Add(new ActionOption { title = "Воровство", description = "Проверка интеллекта." });
+                playerActionsForCard.Add(new ActionOption { title = "Лобирование", description = "Проверка финансов." });
+                playerActionsForCard.Add(new ActionOption { title = "Обращение важное", description = "Проверка воли." });
+            }
+
+            // AI-боевой выбор: максимум 3 рандомных действия из списка ключевых
+            string[] coreActions = { "Воровство", "Лобирование", "Обращение важное", "Интриги", "Дебаты" };
+            List<ActionOption> aiActionsForCard = new List<ActionOption>();
+            List<int> used = new List<int>();
+            for (int k = 0; k < 3; k++)
+            {
+                int idx;
+                do { idx = Random.Range(0, coreActions.Length); } while (used.Contains(idx) && used.Count < coreActions.Length);
+                used.Add(idx);
+
+                aiActionsForCard.Add(new ActionOption
+                {
+                    title = coreActions[idx],
+                    description = $"AI: {coreActions[idx]}"
+                });
+            }
+
             CharacterData data = new CharacterData
             {
                 characterName = candidate.Name,
@@ -91,7 +137,10 @@ public class CandidateCardsController : MonoBehaviour
                 abilityCount = candidate.Abilities.Count, // Количество способностей для отображения кружков
                 hp = candidate.Influence,
                 insanity = candidate.Intellect,
-                age = candidate.Age
+                age = candidate.Age,
+                candidate = candidate, // Передаем ссылку на кандидата для вызова действий
+                playerActions = playerActionsForCard.ToArray(),
+                aiActions = aiActionsForCard.ToArray()
             };
 
             Debug.Log($"[CandidateCardsController] Кандидат {i}: {candidate.Name}");

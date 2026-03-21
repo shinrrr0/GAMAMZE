@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -33,6 +34,9 @@ public class CharacterData
     public int insanity;
     public int age;
     public int abilityCount; // Количество способностей для отображения кружков
+    
+    // Ссылка на кандидата для вызова действий
+    public Candidate candidate;
 }
 
 public class CharacterCardUI : MonoBehaviour
@@ -69,6 +73,7 @@ public class CharacterCardUI : MonoBehaviour
     private ActionOption[] currentAiActions = Array.Empty<ActionOption>();
     private Ability[] currentAbilities = Array.Empty<Ability>();
     private bool fieldsSearched = false;
+    private Candidate currentCandidate; // Ссылка на кандидата
 
     public void Apply(CharacterData data)
     {
@@ -78,6 +83,11 @@ public class CharacterCardUI : MonoBehaviour
             AutoFindFields();
             fieldsSearched = true;
         }
+
+        // Сохраняем ссылку на кандидата
+        currentCandidate = data.candidate;
+        string candidateName = currentCandidate != null ? currentCandidate.Name : "NULL";
+        Debug.Log($"[CharacterCardUI] Установлен кандидат: {candidateName}");
 
         // Если спрайты не переданы - не перезаписываем уже установленные (например, сгенерированные другим скриптом)
         if (faceImage != null && data.face != null) faceImage.sprite = data.face;
@@ -291,6 +301,30 @@ public class CharacterCardUI : MonoBehaviour
         }
     }
 
+    private void RefreshCandidateFromData()
+    {
+        if (currentCandidate == null)
+            return;
+
+        if (nameText != null)
+            nameText.text = currentCandidate.Name;
+
+        ApplySkills(new[]
+        {
+            $"Влияние: {currentCandidate.Influence}",
+            $"Интеллект: {currentCandidate.Intellect}",
+            $"Воля: {currentCandidate.Willpower}",
+            $"Деньги: {currentCandidate.Money}"
+        });
+
+        ApplyDots(hpDots, currentCandidate.Influence);
+        ApplyDots(insanityDots, currentCandidate.Intellect);
+        ApplyDots(ageDots, currentCandidate.Age);
+
+        currentAbilities = currentCandidate.Abilities?.ToArray() ?? Array.Empty<Ability>();
+        ApplyAbilityDots();
+    }
+
     private void SetupPlayerDropdown(ActionOption[] actions)
     {
         currentPlayerActions = actions ?? Array.Empty<ActionOption>();
@@ -311,9 +345,13 @@ public class CharacterCardUI : MonoBehaviour
         playerActionDropdown.AddOptions(options);
         playerActionDropdown.value = 0;
         playerActionDropdown.RefreshShownValue();
+        
+        // Обновляем описание
+        if (playerActionDescriptionText != null && currentPlayerActions.Length > 0)
+            playerActionDescriptionText.text = currentPlayerActions[0].description;
+        
+        // Привязываем слушателя после инициализации
         playerActionDropdown.onValueChanged.AddListener(OnPlayerActionChanged);
-
-        OnPlayerActionChanged(0);
     }
 
     private void SetupAiDropdown(ActionOption[] actions)
@@ -334,11 +372,36 @@ public class CharacterCardUI : MonoBehaviour
             options.Add("-");
 
         aiActionDropdown.AddOptions(options);
+        
+        // Не выбираем случайное действие здесь (может быть во время сериализации)
+        // Вместо этого установим первое действие
         aiActionDropdown.value = 0;
         aiActionDropdown.RefreshShownValue();
+        
+        // Обновляем описание первого действия
+        if (aiActionDescriptionText != null && currentAiActions.Length > 0)
+            aiActionDescriptionText.text = currentAiActions[0].description;
+        
+        // Привязываем слушателя после инициализации
         aiActionDropdown.onValueChanged.AddListener(OnAiActionChanged);
-
-        OnAiActionChanged(0);
+        
+        // Отложим выбор случайного действия на один фрейм
+        StartCoroutine(ApplyRandomAiActionNextFrame());
+    }
+    
+    /// <summary>
+    /// Выбирает случайное AI действие после инициализации
+    /// </summary>
+    private System.Collections.IEnumerator ApplyRandomAiActionNextFrame()
+    {
+        yield return null; // Ждём следующего фрейма
+        
+        if (currentAiActions.Length > 0 && aiActionDropdown != null)
+        {
+            int randomIndex = UnityEngine.Random.Range(0, currentAiActions.Length);
+            aiActionDropdown.value = randomIndex;
+            aiActionDropdown.RefreshShownValue();
+        }
     }
 
     private void OnPlayerActionChanged(int index)
@@ -353,6 +416,12 @@ public class CharacterCardUI : MonoBehaviour
         }
 
         playerActionDescriptionText.text = currentPlayerActions[index].description;
+        
+        // Вызовем соответствующее действие кандидата
+        if (currentCandidate != null)
+        {
+            ExecutePlayerAction(index);
+        }
     }
 
     private void OnAiActionChanged(int index)
@@ -367,11 +436,86 @@ public class CharacterCardUI : MonoBehaviour
         }
 
         aiActionDescriptionText.text = currentAiActions[index].description;
+        
+        // Вызовем соответствующее действие кандидата для AI
+        if (currentCandidate != null)
+        {
+            ExecuteAiAction(index);
+        }
     }
 
     /// <summary>
-    /// Отображает способности кандидата как кружки (включает/выключает их)
+    /// Вызывает действие кандидата по индексу из playerActions
     /// </summary>
+    private void ExecutePlayerAction(int actionIndex)
+    {
+        if (currentPlayerActions.Length == 0 || actionIndex < 0 || actionIndex >= currentPlayerActions.Length)
+            return;
+
+        string actionTitle = currentPlayerActions[actionIndex].title;
+        Debug.Log($"[CharacterCardUI] Вызываю действие игрока: {actionTitle}");
+
+        switch (actionTitle)
+        {
+            case "Воровство":
+                CandidateActions.Steal(currentCandidate);
+                break;
+            case "Лобирование":
+                CandidateActions.Lobby(currentCandidate);
+                break;
+            case "Обращение важное":
+                CandidateActions.MajorAppeal(currentCandidate, 0);
+                break;
+            case "Интриги":
+                Debug.Log("[CharacterCardUI] Интриги требуют выбора цели (не реализовано в этом UI)");
+                break;
+            case "Дебаты":
+                Debug.Log("[CharacterCardUI] Дебаты требуют выбора оппонента (не реализовано в этом UI)");
+                break;
+            default:
+                Debug.LogWarning($"[CharacterCardUI] Неизвестное действие: {actionTitle}");
+                break;
+        }
+
+        RefreshCandidateFromData();
+    }
+
+    /// <summary>
+    /// Вызывает действие кандидата по индексу из aiActions (AI/случайное)
+    /// </summary>
+    private void ExecuteAiAction(int actionIndex)
+    {
+        if (currentAiActions.Length == 0 || actionIndex < 0 || actionIndex >= currentAiActions.Length)
+            return;
+
+        string actionTitle = currentAiActions[actionIndex].title;
+        Debug.Log($"[CharacterCardUI] Вызываю действие AI: {actionTitle}");
+
+        switch (actionTitle)
+        {
+            case "Воровство":
+                CandidateActions.Steal(currentCandidate);
+                break;
+            case "Лобирование":
+                CandidateActions.Lobby(currentCandidate);
+                break;
+            case "Обращение важное":
+                CandidateActions.MajorAppeal(currentCandidate, 0);
+                break;
+            case "Интриги":
+                Debug.Log("[CharacterCardUI] AI Интриги требуют выбора цели (не реализовано)");
+                break;
+            case "Дебаты":
+                Debug.Log("[CharacterCardUI] AI Дебаты требуют выбора оппонента (не реализовано)");
+                break;
+            default:
+                Debug.LogWarning($"[CharacterCardUI] Неизвестное AI действие: {actionTitle}");
+                break;
+        }
+
+        RefreshCandidateFromData();
+    }
+
     /// <summary>
     /// Отображает способности кандидата как кружки с их цветами (включает/выключает их)
     /// </summary>
