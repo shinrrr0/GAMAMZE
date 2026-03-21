@@ -20,16 +20,17 @@ public class PresidentDisplay : MonoBehaviour
     [SerializeField] private AbilityTooltip abilityTooltip;
     [SerializeField] private CrisisTooltip crisisTooltip;
 
-    private Crisis[] currentCrises = new Crisis[3];
+    private Crisis[] currentCrises;
 
-    void Start()
-    {
-        // Инициализируем кризис доты при старте
-        GenerateCrisisDots();
-        
-        // Инициализируем CrisisDatabase если еще не инициализирована
-        CrisisDatabase.Initialize();
-    }
+void Start()
+{
+    CrisisDatabase.Initialize();
+
+    if (crisisImages == null)
+        crisisImages = new Image[0];
+
+    UpdateUI();
+} 
 
     void Update()
     {
@@ -38,132 +39,111 @@ public class PresidentDisplay : MonoBehaviour
     }
 
     public void UpdateUI()
+{
+    if (presidentData == null)
     {
-        // Дополнительная проверка
-        if (presidentData == null)
-        {
-            Debug.LogWarning("[PresidentDisplay] presidentData is NULL");
-            return;
-        }
-
-        // Закрываем tooltip при обновлении хода
-
-        if (hpText == null || insanityText == null || ageText == null || turnText == null) 
-        {
-            Debug.LogWarning("hp, insanity, age or turn not specified");
-            return;
-        }
-
-
-        hpText.text = $"HP: {presidentData.hp}";
-        insanityText.text = $"Insanity: {presidentData.insanity}";
-        ageText.text = $"Age: {presidentData.age}";
-        turnText.text = $"Turn: {presidentData.turnCount}";
-
-        // Цвета (лучше задать один раз в Start, но для теста пойдет)
-        hpText.color = Color.green;
-        insanityText.color = Color.magenta;
-        ageText.color = Color.cyan;
-        turnText.color = Color.yellow; 
-
-        // Отображаем ровно столько кризисов, сколько нужно
-        if (crisisImages == null || crisisImages.Length == 0)
-        {
-            return;
-        }
-        
-        if (presidentData.activeCrises == null)
-        {
-            return;
-        }
-
-        // Динамически создаем новые доты если активных кризисов больше чем дотов
-        if (presidentData.activeCrises.Count > crisisImages.Length)
-        {
-            ExpandCrisisDots();
-            // Расширяем массив текущих кризисов
-            System.Array.Resize(ref currentCrises, presidentData.activeCrises.Count);
-        }
-
-        for (int i = 0; i < crisisImages.Length; i++)
-        {
-            // Проверяем, не null ли сам элемент массива
-            if (crisisImages[i] == null)
-                continue;
-
-            if (i < presidentData.activeCrises.Count)
-            {
-                Crisis currentCrisis = presidentData.activeCrises[i];
-                crisisImages[i].gameObject.SetActive(true);
-                
-                // Сохраняем ссылку для onClick handler
-                currentCrises[i] = currentCrisis;
-                
-                // Установим иконку если она есть
-                if (currentCrisis != null && currentCrisis.icon != null)
-                {
-                    crisisImages[i].sprite = currentCrisis.icon;
-                }
-                
-                // Устанавливаем цвет кризиса
-                if (currentCrisis != null)
-                {
-                    crisisImages[i].color = currentCrisis.color;
-                }
-            }
-            else
-            {
-                // Скрываем неиспользуемые иконки
-                crisisImages[i].gameObject.SetActive(false);
-                currentCrises[i] = null;
-            }
-        }
-        
-        // Устанавливаем click handlers для кризисов
-        SetupCrisisDotClickHandlers();
+        Debug.LogWarning("[PresidentDisplay] presidentData is NULL");
+        return;
     }
+
+    if (hpText == null || insanityText == null || ageText == null || turnText == null)
+    {
+        Debug.LogWarning("hp, insanity, age or turn not specified");
+        return;
+    }
+
+    hpText.text = $"HP: {presidentData.hp}";
+    insanityText.text = $"Insanity: {presidentData.insanity}";
+    ageText.text = $"Age: {presidentData.age}";
+    turnText.text = $"Turn: {presidentData.turnCount}";
+
+    hpText.color = Color.green;
+    insanityText.color = Color.magenta;
+    ageText.color = Color.cyan;
+    turnText.color = Color.yellow;
+
+    if (presidentData.activeCrises == null)
+        return;
+
+    if (crisisImages == null)
+        crisisImages = new Image[0];
+
+    // Если кризисов стало больше, чем есть UI-элементов — создаём новые
+    if (presidentData.activeCrises.Count > crisisImages.Length)
+    {
+        ExpandCrisisDots();
+    }
+
+    for (int i = 0; i < crisisImages.Length; i++)
+    {
+        if (crisisImages[i] == null)
+            continue;
+
+        if (i < presidentData.activeCrises.Count)
+        {
+            Crisis currentCrisis = presidentData.activeCrises[i];
+            crisisImages[i].gameObject.SetActive(true);
+
+            if (currentCrisis != null && currentCrisis.icon != null)
+                crisisImages[i].sprite = currentCrisis.icon;
+
+            if (currentCrisis != null)
+                crisisImages[i].color = currentCrisis.color;
+        }
+        else
+        {
+            crisisImages[i].gameObject.SetActive(false);
+        }
+    }
+
+    SetupCrisisDotClickHandlers();
+}
 
     /// <summary>
     /// Генерирует кружки для кризисов программно (подобно способностям)
     /// </summary>
-    private void GenerateCrisisDots()
+private void GenerateCrisisDots(int count)
+{
+    Transform crisisContainer = transform.Find("CrisisInfoRoot");
+
+    if (crisisContainer == null)
     {
-        // Ищем контейнер для кризисов
-        Transform crisisContainer = transform.Find("CrisisInfoRoot");
-        
+        crisisContainer = transform.Find("Crisis");
+
         if (crisisContainer == null)
-        {
-            crisisContainer = transform.Find("Crisis");
-            
-            if (crisisContainer == null)
-            {
-                crisisContainer = transform.Find("Crises");
-            }
-        }
-        
-        if (crisisContainer == null)
-        {
-            return;
-        }
-
-        // Получаем существующие Image компоненты (НЕ создаем)
-        List<Image> dotsList = new List<Image>();
-
-        int childCount = crisisContainer.childCount;
-
-        for (int i = 0; i < childCount; i++)
-        {
-            Image img = crisisContainer.GetChild(i).GetComponent<Image>();
-            if (img != null)
-            {
-                dotsList.Add(img);
-            }
-        }
-
-        crisisImages = dotsList.ToArray();
-        if (dotsList.Count > 0)
-            Debug.Log($"[PresidentDisplay] Found {crisisImages.Length} pre-made crisis dots in hierarchy");
+            crisisContainer = transform.Find("Crises");
     }
+
+    if (crisisContainer == null)
+        return;
+
+    foreach (Transform child in crisisContainer)
+    {
+        Destroy(child.gameObject);
+    }
+
+    List<Image> dots = new List<Image>();
+
+    for (int i = 0; i < count; i++)
+    {
+        GameObject dotGO = new GameObject($"CrisisDot_{i}");
+        dotGO.transform.SetParent(crisisContainer, false);
+
+        RectTransform rect = dotGO.AddComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(32f, 32f);
+
+        Image image = dotGO.AddComponent<Image>();
+        image.color = Color.white;
+
+        Button button = dotGO.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        dots.Add(image);
+    }
+
+    crisisImages = dots.ToArray();
+    SetupCrisisDotClickHandlers();
+}
 
     /// <summary>
     /// Расширяет массив кризис-дотов когда активных кризисов больше чем дотов

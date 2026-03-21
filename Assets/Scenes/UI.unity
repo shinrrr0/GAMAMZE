@@ -8613,6 +8613,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 724830622}
+  - component: {fileID: 724830623}
   m_Layer: 5
   m_Name: Crises
   m_TagString: Untagged
@@ -8637,8 +8638,32 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 135.5636, y: 100}
+  m_SizeDelta: {x: 215.6828, y: 108.42}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &724830623
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 724830621}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a8695521f0d02e499659fee002a26c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GridLayoutGroup
+  m_Padding:
+    m_Left: 0
+    m_Right: 0
+    m_Top: 0
+    m_Bottom: 0
+  m_ChildAlignment: 0
+  m_StartCorner: 0
+  m_StartAxis: 1
+  m_CellSize: {x: 50, y: 60}
+  m_Spacing: {x: 10, y: 10}
+  m_Constraint: 2
+  m_ConstraintCount: 2
 --- !u!1 &726461884
 GameObject:
   m_ObjectHideFlags: 0
@@ -10636,12 +10661,9 @@ MonoBehaviour:
   insanityText: {fileID: 997389312}
   ageText: {fileID: 1456287052}
   turnText: {fileID: 1379180362}
-  crisisImages:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  crisisImages: []
   abilityTooltip: {fileID: 0}
-  crisisTooltip: {fileID: 0}
+  crisisTooltip: {fileID: 1229728474}
 --- !u!1 &894948106
 GameObject:
   m_ObjectHideFlags: 0
@@ -23066,19 +23088,7 @@ MonoBehaviour:
   turnCount: 1
   turnCountText: {fileID: 1379180362}
   nextTurnButton: {fileID: 431126008}
-  activeCrises:
-  - name: Crysis1
-    icon: {fileID: 21300000, guid: 805a351568e815549b5114a5bff62d10, type: 3}
-    color: {r: 0.8, g: 0.2, b: 0.8, a: 1}
-    description: 
-  - name: Crysis2
-    icon: {fileID: 21300000, guid: 068248abd988095468f1cad9ba804362, type: 3}
-    color: {r: 0.8, g: 0.2, b: 0.8, a: 1}
-    description: 
-  - name: Crysis3
-    icon: {fileID: 21300000, guid: 2ca79f5947247eb428ec24b529961c8b, type: 3}
-    color: {r: 0.8, g: 0.2, b: 0.8, a: 1}
-    description: 
+  activeCrises: []
   crisisTooltip: {fileID: 1229728474}
 --- !u!1 &2118653736
 GameObject:
