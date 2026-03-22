@@ -18,6 +18,9 @@ public class President : MonoBehaviour
     [Header("UI")]
     [SerializeField] private CrisisTooltip crisisTooltip;
 
+    [Header("Candidates")]
+    [SerializeField] private CandidateCardsController candidateCardsController;
+
     private void Start()
     {
         CrisisDatabase.Initialize();
@@ -26,6 +29,10 @@ public class President : MonoBehaviour
 
     public void NextTurn()
     {
+        // Выполняем все сохранённые действия кандидатов
+        if (candidateCardsController != null)
+            candidateCardsController.ExecuteAllActions();
+
         turnCount++;
         age += 5;
 
@@ -37,11 +44,8 @@ public class President : MonoBehaviour
 
         insanity += 1;
 
-        // 25% шанс добавить новый кризис
         if (Random.Range(0, 101) <= 15 + (insanity * 2))
-        {
             AddRandomCrisis();
-        }
 
         LogToText($"Ход {turnCount}: Возраст {age}, HP {hp}, Безумие {insanity}, Кризисов {activeCrises.Count}");
 
@@ -63,13 +67,9 @@ public class President : MonoBehaviour
         LogToText($"Новый кризис: {randomCrisis.name}");
 
         if (crisisTooltip != null)
-        {
             crisisTooltip.ShowCrisis(randomCrisis);
-        }
         else
-        {
             Debug.LogWarning("[President] CrisisTooltip не привязан в инспекторе.");
-        }
     }
 
     private void UpdateUI()

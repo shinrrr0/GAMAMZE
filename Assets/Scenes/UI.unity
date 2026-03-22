@@ -24062,6 +24062,7 @@ MonoBehaviour:
   nextTurnButton: {fileID: 431126008}
   activeCrises: []
   crisisTooltip: {fileID: 1229728474}
+  candidateCardsController: {fileID: 1061634078}
 --- !u!1 &2118653736
 GameObject:
   m_ObjectHideFlags: 0

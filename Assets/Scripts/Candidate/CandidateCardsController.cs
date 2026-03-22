@@ -16,18 +16,19 @@ public class CandidateCardsController : MonoBehaviour
     private List<Candidate> candidates = new List<Candidate>();
     private List<CharacterCardUI> cardUIs = new List<CharacterCardUI>();
 
+    // Все доступные действия (нужны для восстановления дропдаунов при RefreshAllCards)
+    private List<GameAction> allActions = new List<GameAction>();
+
+    // Сохранённые действия — по одному на каждого кандидата
+    private GameAction[] pendingActions;
+    private Candidate[] pendingTargets;
+
     private void Start()
     {
         ActionDatabase.Initialize();
 
-        Debug.Log("[CandidateCardsController] Start() called!");
         if (generateOnStart)
-        {
-            Debug.Log("[CandidateCardsController] generateOnStart = true, откладываю на следующий фрейм");
             StartCoroutine(GenerateCandidatesNextFrame());
-        }
-        else
-            Debug.Log("[CandidateCardsController] generateOnStart = false, пропускаю генерацию");
     }
 
     private IEnumerator GenerateCandidatesNextFrame()
@@ -39,27 +40,17 @@ public class CandidateCardsController : MonoBehaviour
     [ContextMenu("Generate Candidates")]
     public void GenerateCandidates()
     {
-        Debug.Log("[CandidateCardsController] GenerateCandidates() called!");
-
         cardUIs.Clear();
         candidates.Clear();
-
-        Debug.Log($"[CandidateCardsController] Ищу CharacterCardUI в {transform.childCount} дочерних объектах");
 
         for (int i = 0; i < transform.childCount; i++)
         {
             Transform child = transform.GetChild(i);
-            Debug.Log($"[CandidateCardsController] [{i}] {child.name}");
 
             if (child.name == "President" || child.name == "President Panel")
-            {
-                Debug.Log($"[CandidateCardsController]     -> Пропускаю President");
                 continue;
-            }
 
             CharacterCardUI cardUI = child.GetComponent<CharacterCardUI>();
-            Debug.Log($"[CandidateCardsController]     -> CharacterCardUI: {(cardUI != null ? "НАЙДЕН" : "НЕ НАЙДЕН")}");
-
             if (cardUI != null)
                 cardUIs.Add(cardUI);
         }
@@ -70,19 +61,32 @@ public class CandidateCardsController : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[CandidateCardsController] Найдено {cardUIs.Count} карточек");
-
         if (generator != null)
             generator.GenerateUICharacters();
 
-        List<GameAction> allActions = ActionDatabase.GetAll();
+        allActions = ActionDatabase.GetAll();
+
+        pendingActions = new GameAction[cardUIs.Count];
+        pendingTargets = new Candidate[cardUIs.Count];
+
+        // Подписываемся на колбэк подтверждения действия
+        if (actionTooltip != null)
+            actionTooltip.OnActionConfirmed = (action, actor, target) =>
+            {
+                int idx = candidates.IndexOf(actor);
+                if (idx >= 0)
+                {
+                    pendingActions[idx] = action;
+                    pendingTargets[idx] = target;
+                    Debug.Log($"[CandidateCardsController] Сохранено действие '{action.name}' для {actor.Name}");
+                }
+            };
 
         for (int i = 0; i < cardUIs.Count; i++)
         {
             Candidate candidate = new Candidate();
             candidates.Add(candidate);
 
-            // Собираем ActionOption для дропдауна из базы действий
             ActionOption[] playerActions = new ActionOption[allActions.Count];
             for (int j = 0; j < allActions.Count; j++)
             {
@@ -93,7 +97,6 @@ public class CandidateCardsController : MonoBehaviour
                 };
             }
 
-            // AI: 3 случайных действия
             List<ActionOption> aiActionsForCard = new List<ActionOption>();
             List<int> used = new List<int>();
             for (int k = 0; k < 3; k++)
@@ -128,10 +131,8 @@ public class CandidateCardsController : MonoBehaviour
                 aiActions = aiActionsForCard.ToArray()
             };
 
-            Debug.Log($"[CandidateCardsController] Кандидат {i}: {candidate.Name}");
             cardUIs[i].Apply(data);
 
-            // Привязываем обработчик выбора действия к карточке
             int cardIndex = i;
             cardUIs[i].OnPlayerActionSelected = (actionIndex) =>
             {
@@ -141,7 +142,6 @@ public class CandidateCardsController : MonoBehaviour
                 GameAction selectedAction = allActions[actionIndex];
                 Candidate actor = candidates[cardIndex];
 
-                // Цель — первый другой кандидат (заглушка, логику выбора цели можно расширить)
                 Candidate target = null;
                 for (int t = 0; t < candidates.Count; t++)
                 {
@@ -155,8 +155,70 @@ public class CandidateCardsController : MonoBehaviour
                 if (actionTooltip != null)
                     actionTooltip.Show(selectedAction, actor, target);
                 else
-                    Debug.LogWarning("[CandidateCardsController] ActionTooltip не привязан в инспекторе!");
+                    Debug.LogWarning("[CandidateCardsController] ActionTooltip не привязан!");
             };
+        }
+    }
+
+    /// <summary>
+    /// Выполняет все сохранённые действия и обновляет UI карточек.
+    /// Вызывается из President.NextTurn()
+    /// </summary>
+    public void ExecuteAllActions()
+    {
+        if (pendingActions == null) return;
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            if (pendingActions[i] != null)
+            {
+                Debug.Log($"[CandidateCardsController] Выполняю '{pendingActions[i].name}' для {candidates[i].Name}");
+                pendingActions[i].Execute(candidates[i], pendingTargets[i]);
+                pendingActions[i] = null;
+                pendingTargets[i] = null;
+            }
+        }
+
+        // Обновляем UI всех карточек
+        RefreshAllCards();
+    }
+
+    private void RefreshAllCards()
+    {
+        ActionOption[] playerActionOptions = null;
+        if (allActions != null && allActions.Count > 0)
+        {
+            playerActionOptions = new ActionOption[allActions.Count];
+            for (int j = 0; j < allActions.Count; j++)
+                playerActionOptions[j] = new ActionOption
+                {
+                    title = allActions[j].name,
+                    description = allActions[j].description
+                };
+        }
+
+        for (int i = 0; i < cardUIs.Count && i < candidates.Count; i++)
+        {
+            Candidate c = candidates[i];
+            CharacterData data = new CharacterData
+            {
+                characterName = c.Name,
+                skills = new[]
+                {
+                    $"Влияние: {c.Influence}",
+                    $"Интеллект: {c.Intellect}",
+                    $"Воля: {c.Willpower}",
+                    $"Деньги: {c.Money}"
+                },
+                abilities = c.Abilities.ToArray(),
+                abilityCount = c.Abilities.Count,
+                hp = c.Influence,
+                insanity = c.Intellect,
+                age = c.Age,
+                candidate = c,
+                playerActions = playerActionOptions
+            };
+            cardUIs[i].Apply(data);
         }
     }
 }

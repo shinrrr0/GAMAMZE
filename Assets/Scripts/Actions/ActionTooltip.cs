@@ -1,11 +1,8 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-/// <summary>
-/// Менюшка которая появляется при выборе действия из дропдауна.
-/// Показывает название и описание, две кнопки: подтвердить (галочка) и отменить (крестик).
-/// </summary>
 public class ActionTooltip : MonoBehaviour
 {
     [Header("Texts")]
@@ -13,8 +10,8 @@ public class ActionTooltip : MonoBehaviour
     [SerializeField] private TextMeshProUGUI actionDescriptionText;
 
     [Header("Buttons")]
-    [SerializeField] private Button confirmButton;  // галочка
-    [SerializeField] private Button cancelButton;   // крестик
+    [SerializeField] private Button confirmButton;
+    [SerializeField] private Button cancelButton;
 
     [Header("Panel")]
     [SerializeField] private Image panelImage;
@@ -24,6 +21,10 @@ public class ActionTooltip : MonoBehaviour
     private GameAction currentAction;
     private Candidate currentActor;
     private Candidate currentTarget;
+
+    // Колбэк — вызывается когда игрок подтверждает действие
+    // Передаёт действие, актора и цель наружу для сохранения
+    public Action<GameAction, Candidate, Candidate> OnActionConfirmed;
 
     private void Awake()
     {
@@ -43,9 +44,6 @@ public class ActionTooltip : MonoBehaviour
         Close();
     }
 
-    /// <summary>
-    /// Открывает менюшку с данными выбранного действия
-    /// </summary>
     public void Show(GameAction action, Candidate actor, Candidate target)
     {
         currentAction = action;
@@ -63,8 +61,9 @@ public class ActionTooltip : MonoBehaviour
 
     private void OnConfirm()
     {
+        // Сохраняем выбор через колбэк — не выполняем сразу
         if (currentAction != null)
-            currentAction.Execute(currentActor, currentTarget);
+            OnActionConfirmed?.Invoke(currentAction, currentActor, currentTarget);
 
         Close();
     }
