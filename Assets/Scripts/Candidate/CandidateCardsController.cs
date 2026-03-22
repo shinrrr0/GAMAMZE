@@ -200,6 +200,22 @@ public class CandidateCardsController : MonoBehaviour
         for (int i = 0; i < cardUIs.Count && i < candidates.Count; i++)
         {
             Candidate c = candidates[i];
+
+            // Каждый ход — новое случайное действие для AI
+            ActionOption[] aiAction = null;
+            if (allActions != null && allActions.Count > 0)
+            {
+                int randomIdx = Random.Range(0, allActions.Count);
+                aiAction = new ActionOption[]
+                {
+                    new ActionOption
+                    {
+                        title = allActions[randomIdx].name,
+                        description = allActions[randomIdx].description
+                    }
+                };
+            }
+
             CharacterData data = new CharacterData
             {
                 characterName = c.Name,
@@ -216,7 +232,8 @@ public class CandidateCardsController : MonoBehaviour
                 insanity = c.Intellect,
                 age = c.Age,
                 candidate = c,
-                playerActions = playerActionOptions
+                playerActions = playerActionOptions,
+                aiActions = aiAction
             };
             cardUIs[i].Apply(data);
         }

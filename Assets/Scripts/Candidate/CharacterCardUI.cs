@@ -290,33 +290,62 @@ public class CharacterCardUI : MonoBehaviour
 
     private void SetupAiDropdown(ActionOption[] actions)
     {
-        currentAiActions = actions ?? Array.Empty<ActionOption>();
+        // Скрываем дропдаун AI — игрок не должен его трогать
+        if (aiActionDropdown != null)
+            aiActionDropdown.gameObject.SetActive(false);
 
-        if (aiActionDropdown == null)
-            return;
+        // Скрываем описание AI-дропдауна если есть
+        if (aiActionDescriptionText != null)
+            aiActionDescriptionText.gameObject.SetActive(false);
 
-        aiActionDropdown.onValueChanged.RemoveAllListeners();
-        aiActionDropdown.ClearOptions();
+        string actionName = (actions != null && actions.Length > 0) ? actions[0].title : "—";
 
-        List<string> options = new List<string>();
-        for (int i = 0; i < currentAiActions.Length; i++)
-            options.Add(currentAiActions[i].title);
+        // Ищем или создаём лейбл "AiActionLabel" рядом с дропдауном
+        Transform parent = aiActionDropdown != null
+            ? aiActionDropdown.transform.parent
+            : transform;
 
-        if (options.Count == 0)
-            options.Add("-");
+        TMP_Text aiLabel = null;
+        Transform existing = parent.Find("AiActionLabel");
+        if (existing != null)
+            aiLabel = existing.GetComponent<TMP_Text>();
 
-        aiActionDropdown.AddOptions(options);
-        aiActionDropdown.value = 0;
-        aiActionDropdown.RefreshShownValue();
-        aiActionDropdown.onValueChanged.AddListener(OnAiActionChanged);
+        if (aiLabel == null)
+        {
+            GameObject labelGO = new GameObject("AiActionLabel");
+            labelGO.transform.SetParent(parent, false);
 
-        OnAiActionChanged(0);
+            RectTransform dstRect = labelGO.AddComponent<RectTransform>();
+
+            if (aiActionDropdown != null)
+            {
+                // Встаём на место дропдауна
+                RectTransform srcRect = aiActionDropdown.GetComponent<RectTransform>();
+                dstRect.anchorMin        = srcRect.anchorMin;
+                dstRect.anchorMax        = srcRect.anchorMax;
+                dstRect.anchoredPosition = srcRect.anchoredPosition;
+                dstRect.sizeDelta        = srcRect.sizeDelta;
+                dstRect.pivot            = srcRect.pivot;
+            }
+            else
+            {
+                dstRect.anchorMin        = new Vector2(0f, 0f);
+                dstRect.anchorMax        = new Vector2(1f, 0.5f);
+                dstRect.offsetMin        = Vector2.zero;
+                dstRect.offsetMax        = Vector2.zero;
+            }
+
+            aiLabel = labelGO.AddComponent<TextMeshProUGUI>();
+            aiLabel.fontSize  = 16;
+            aiLabel.color     = new Color(0.85f, 0.85f, 0.85f, 1f);
+            aiLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        }
+
+        aiLabel.text = "ИИ: " + actionName;
     }
 
     private void OnPlayerActionChanged(int index)
     {
         OnPlayerActionSelected?.Invoke(index);
     }
-
-    private void OnAiActionChanged(int index) { }
 }
