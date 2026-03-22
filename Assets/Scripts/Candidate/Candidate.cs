@@ -135,6 +135,23 @@ public class Candidate
         Background = GenerateRandomBackground();
     }
 
+    /// <summary>
+    /// Конструктор с поддержкой уникальных классов
+    /// </summary>
+    public Candidate(HashSet<string> usedClasses)
+    {
+        Name = GenerateRandomName();
+        Age = Random.Range(35, 71);
+
+        Influence = Random.Range(30, 101);
+        Intellect = Random.Range(30, 101);
+        Money = Random.Range(30, 101);
+        Willpower = Random.Range(30, 101);
+
+        Abilities = GenerateRandomAbilities(usedClasses);
+        Background = GenerateRandomBackground();
+    }
+
     // тут заданные данные
     public Candidate(string name, int age, int influence, int intellect, int money, int willpower, List<Ability> abilities, string background)
     {
@@ -150,23 +167,86 @@ public class Candidate
 
     private static string GenerateRandomName()
     {
-        var firstNames = new[] { "Алексей", "Мария", "Иван", "Ольга", "Дмитрий", "Наталья", "Сергей", "Екатерина", "Павел", "Анна" };
-        var lastNames = new[] { "Иванов", "Петров", "Смирнов", "Кузнецова", "Соколов", "Попова", "Лебедев", "Козлова", "Новиков", "Морозова" };
+        // Определяем пол случайно (true = женский, false = мужской)
+        bool isFemale = Random.value > 0.5f;
+        return GenerateRandomName(isFemale);
+    }
 
-        var first = firstNames[Random.Range(0, firstNames.Length)];
-        var last = lastNames[Random.Range(0, lastNames.Length)];
-        return first + " " + last;
+    /// <summary>
+    /// Генерирует имя и фамилию для персонажа с синхронизацией по полу
+    /// </summary>
+    private static string GenerateRandomName(bool isFemale)
+    {
+        // Мужские имена
+        var maleFirstNames = new[] { "Алексей", "Иван", "Дмитрий", "Сергей", "Павел", "Николай", "Петр", "Михаил" };
+        // Женские имена
+        var femaleFirstNames = new[] { "Мария", "Ольга", "Наталья", "Екатерина", "Анна", "Елена", "Людмила", "Виктория" };
+
+        // Мужские фамилии
+        var maleLastNames = new[] { "Иванов", "Петров", "Смирнов", "Соколов", "Лебедев", "Новиков", "Морозов", "Сидоров" };
+        // Женские фамилии (окончание -а/-ова/-ева вместо -о/-ов/-ев)
+        var femaleLastNames = new[] { "Иванова", "Петрова", "Смирнова", "Соколова", "Лебедева", "Новикова", "Морозова", "Сидорова" };
+
+        string firstName;
+        string lastName;
+
+        if (isFemale)
+        {
+            firstName = femaleFirstNames[Random.Range(0, femaleFirstNames.Length)];
+            lastName = femaleLastNames[Random.Range(0, femaleLastNames.Length)];
+        }
+        else
+        {
+            firstName = maleFirstNames[Random.Range(0, maleFirstNames.Length)];
+            lastName = maleLastNames[Random.Range(0, maleLastNames.Length)];
+        }
+
+        return firstName + " " + lastName;
     }
 
     private static List<Ability> GenerateRandomAbilities()
     {
-        // Инициализируем базу данных способностей
+        // Инициализируем базы данных
+        ClassDatabase.Initialize();
         AbilityDatabase.Initialize();
         
-        // Берем от 1 до 3 случайных способностей из базы данных
-        int abilityCount = Random.Range(1, 4); // 1, 2 или 3
+        List<Ability> abilities = new List<Ability>();
         
-        return AbilityDatabase.GetRandomAbilities(abilityCount);
+        // Первая способность - это класс персонажа (ровно 1)
+        Ability playerClass = ClassDatabase.GetRandomClass();
+        abilities.Add(new Ability(playerClass.name, playerClass.icon, playerClass.description, playerClass.color));
+        
+        // Остальные способности генерируются от 0 до 2 (на 1 меньше, чем было)
+        int additionalAbilityCount = Random.Range(0, 3); // 0, 1 или 2
+        
+        List<Ability> randomAbilities = AbilityDatabase.GetRandomAbilities(additionalAbilityCount);
+        abilities.AddRange(randomAbilities);
+        
+        return abilities;
+    }
+
+    /// <summary>
+    /// Генерирует способности с учётом уже использованных классов (для уникальности)
+    /// </summary>
+    private static List<Ability> GenerateRandomAbilities(HashSet<string> usedClasses)
+    {
+        // Инициализируем базы данных
+        ClassDatabase.Initialize();
+        AbilityDatabase.Initialize();
+        
+        List<Ability> abilities = new List<Ability>();
+        
+        // Первая способность - уникальный класс персонажа
+        Ability playerClass = ClassDatabase.GetRandomClassExcluding(usedClasses);
+        abilities.Add(new Ability(playerClass.name, playerClass.icon, playerClass.description, playerClass.color));
+        
+        // Остальные способности генерируются от 0 до 2 (на 1 меньше, чем было)
+        int additionalAbilityCount = Random.Range(0, 3); // 0, 1 или 2
+        
+        List<Ability> randomAbilities = AbilityDatabase.GetRandomAbilities(additionalAbilityCount);
+        abilities.AddRange(randomAbilities);
+        
+        return abilities;
     }
 
     public bool NoCrisisNextTurn { get; set; }
@@ -244,6 +324,13 @@ public class Candidate
         {
             if (ability == null || string.IsNullOrEmpty(ability.name))
                 continue;
+
+            // Классы персонажей не имеют прямых действий - это профессии/роли
+            if (ClassDatabase.IsClass(ability.name))
+            {
+                ability.SetFunction(() => Debug.Log($"[Candidate] {Name} использует класс '{ability.name}'"));
+                continue;
+            }
 
             switch (ability.name)
             {

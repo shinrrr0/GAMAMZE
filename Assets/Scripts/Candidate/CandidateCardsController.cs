@@ -82,10 +82,19 @@ public class CandidateCardsController : MonoBehaviour
                 }
             };
 
+        // Создаём HashSet для отслеживания использованных классов (для уникальности)
+        HashSet<string> usedClasses = new HashSet<string>();
+
         for (int i = 0; i < cardUIs.Count; i++)
         {
-            Candidate candidate = new Candidate();
+            Candidate candidate = new Candidate(usedClasses);
             candidates.Add(candidate);
+
+            // Добавляем класс этого персонажа в HashSet для следующих персонажей
+            if (candidate.Abilities.Count > 0)
+            {
+                usedClasses.Add(candidate.Abilities[0].name);
+            }
 
             ActionOption[] playerActions = new ActionOption[allActions.Count];
             for (int j = 0; j < allActions.Count; j++)
@@ -116,10 +125,10 @@ public class CandidateCardsController : MonoBehaviour
                 characterName = candidate.Name,
                 skills = new[]
                 {
-                    $"Влияние: {candidate.Influence}",
-                    $"Интеллект: {candidate.Intellect}",
-                    $"Воля: {candidate.Willpower}",
-                    $"Деньги: {candidate.Money}"
+                    $"ВЛН: {candidate.Influence}",
+                    $"ИНТ: {candidate.Intellect}",
+                    $"ВОЛ: {candidate.Willpower}",
+                    $"ФИН: {candidate.Money}"
                 },
                 abilities = candidate.Abilities.ToArray(),
                 abilityCount = candidate.Abilities.Count,
