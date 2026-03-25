@@ -10,6 +10,9 @@ public class MainMenuController : MonoBehaviour
 
     [Header("Scenes")]
     [SerializeField] private string firstGameSceneName = "GameScene";
+    [SerializeField] private string entrySceneName = "Entry";
+
+    private const string HasLaunchedBeforeKey = "HasLaunchedBefore";
 
     private void Start()
     {
@@ -34,10 +37,24 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    public void Entry()
+    {
+        MarkGameAsLaunched();
+        SceneManager.LoadScene(entrySceneName);
+    }
+
     public void StartNewGame()
     {
         Time.timeScale = 1f;
         AudioListener.pause = false;
+
+        if (IsFirstLaunch())
+        {
+            MarkGameAsLaunched();
+            SceneManager.LoadScene(entrySceneName);
+            return;
+        }
+
         SceneManager.LoadScene(firstGameSceneName);
     }
 
@@ -66,5 +83,16 @@ public class MainMenuController : MonoBehaviour
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #endif
+    }
+
+    private bool IsFirstLaunch()
+    {
+        return PlayerPrefs.GetInt(HasLaunchedBeforeKey, 0) == 0;
+    }
+
+    private void MarkGameAsLaunched()
+    {
+        PlayerPrefs.SetInt(HasLaunchedBeforeKey, 1);
+        PlayerPrefs.Save();
     }
 }
