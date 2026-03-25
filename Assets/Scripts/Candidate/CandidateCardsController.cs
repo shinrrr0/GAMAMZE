@@ -169,6 +169,11 @@ public class CandidateCardsController : MonoBehaviour
         }
     }
 
+    public List<Candidate> GetCandidates()
+    {
+        return new List<Candidate>(candidates);
+    }
+
     /// <summary>
     /// Выполняет все сохранённые действия и обновляет UI карточек.
     /// Вызывается из President.NextTurn()
