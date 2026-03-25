@@ -235,10 +235,10 @@ public class CandidateCardsController : MonoBehaviour
                 characterName = c.Name,
                 skills = new[]
                 {
-                    $"Влияние: {c.Influence}",
-                    $"Интеллект: {c.Intellect}",
-                    $"Воля: {c.Willpower}",
-                    $"Деньги: {c.Money}"
+                    $"ВЛН: {c.Influence}",
+                    $"ИНТ: {c.Intellect}",
+                    $"ВОЛ: {c.Willpower}",
+                    $"ФИН: {c.Money}"
                 },
                 abilities = c.Abilities.ToArray(),
                 abilityCount = c.Abilities.Count,
