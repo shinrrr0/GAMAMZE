@@ -98,7 +98,6 @@ public class CharacterCardUI : MonoBehaviour
 
     private void AutoFindFields()
     {
-        // Ищем Name
         if (nameText == null)
         {
             TMP_Text[] allTexts = GetComponentsInChildren<TMP_Text>();
@@ -113,7 +112,6 @@ public class CharacterCardUI : MonoBehaviour
             }
         }
 
-        // Ищем skillTexts в контейнере Skills and Perks
         if (skillTexts == null || skillTexts.Length == 0)
         {
             Transform skillsContainer = transform.Find("Skills and Perks");
@@ -148,15 +146,12 @@ public class CharacterCardUI : MonoBehaviour
             }
         }
 
-        // Ищем дропдауны и описания в контейнере Actions
         if (playerActionDropdown == null)
         {
             Transform actionsContainer = transform.Find("Actions");
             if (actionsContainer != null)
             {
-                // Ищем Player action dropdown
                 TMP_Dropdown[] dropdowns = actionsContainer.GetComponentsInChildren<TMP_Dropdown>();
-                TMP_Text[] texts = actionsContainer.GetComponentsInChildren<TMP_Text>();
 
                 foreach (var dd in dropdowns)
                 {
@@ -194,7 +189,6 @@ public class CharacterCardUI : MonoBehaviour
         if (perksContainer == null)
             return;
 
-        // Удаляем старые иконки
         for (int i = perksContainer.childCount - 1; i >= 0; i--)
             Destroy(perksContainer.GetChild(i).gameObject);
 
@@ -220,7 +214,6 @@ public class CharacterCardUI : MonoBehaviour
             Button btn = iconGO.AddComponent<Button>();
             btn.targetGraphic = img;
 
-            int index = i;
             Ability captured = ability;
             btn.onClick.AddListener(() =>
             {
@@ -290,17 +283,14 @@ public class CharacterCardUI : MonoBehaviour
 
     private void SetupAiDropdown(ActionOption[] actions)
     {
-        // Скрываем дропдаун AI — игрок не должен его трогать
         if (aiActionDropdown != null)
             aiActionDropdown.gameObject.SetActive(false);
 
-        // Скрываем описание AI-дропдауна если есть
         if (aiActionDescriptionText != null)
             aiActionDescriptionText.gameObject.SetActive(false);
 
         string actionName = (actions != null && actions.Length > 0) ? actions[0].title : "—";
 
-        // Ищем или создаём лейбл "AiActionLabel" рядом с дропдауном
         Transform parent = aiActionDropdown != null
             ? aiActionDropdown.transform.parent
             : transform;
@@ -319,29 +309,28 @@ public class CharacterCardUI : MonoBehaviour
 
             if (aiActionDropdown != null)
             {
-                // Встаём на место дропдауна
                 RectTransform srcRect = aiActionDropdown.GetComponent<RectTransform>();
-                dstRect.anchorMin        = srcRect.anchorMin;
-                dstRect.anchorMax        = srcRect.anchorMax;
+                dstRect.anchorMin = srcRect.anchorMin;
+                dstRect.anchorMax = srcRect.anchorMax;
                 dstRect.anchoredPosition = srcRect.anchoredPosition;
-                dstRect.sizeDelta        = srcRect.sizeDelta;
-                dstRect.pivot            = srcRect.pivot;
+                dstRect.sizeDelta = srcRect.sizeDelta;
+                dstRect.pivot = srcRect.pivot;
             }
             else
             {
-                dstRect.anchorMin        = new Vector2(0f, 0f);
-                dstRect.anchorMax        = new Vector2(1f, 0.5f);
-                dstRect.offsetMin        = Vector2.zero;
-                dstRect.offsetMax        = Vector2.zero;
+                dstRect.anchorMin = new Vector2(0f, 0f);
+                dstRect.anchorMax = new Vector2(1f, 0.5f);
+                dstRect.offsetMin = Vector2.zero;
+                dstRect.offsetMax = Vector2.zero;
             }
 
             aiLabel = labelGO.AddComponent<TextMeshProUGUI>();
-            aiLabel.fontSize  = 16;
-            aiLabel.color     = new Color(0.85f, 0.85f, 0.85f, 1f);
+            aiLabel.fontSize = 16;
+            aiLabel.color = new Color(0.85f, 0.85f, 0.85f, 1f);
             aiLabel.alignment = TextAlignmentOptions.MidlineLeft;
         }
 
-        aiLabel.text = "ИИ: " + actionName;
+        aiLabel.text = "Кандидат предпримет: " + actionName;
     }
 
     private void OnPlayerActionChanged(int index)

@@ -15,13 +15,15 @@ public class CandidateCardsController : MonoBehaviour
 
     private List<Candidate> candidates = new List<Candidate>();
     private List<CharacterCardUI> cardUIs = new List<CharacterCardUI>();
-
-    // Все доступные действия (нужны для восстановления дропдаунов при RefreshAllCards)
     private List<GameAction> allActions = new List<GameAction>();
 
-    // Сохранённые действия — по одному на каждого кандидата
+    // Действие, выбранное игроком вручную
     private GameAction[] pendingActions;
     private Candidate[] pendingTargets;
+
+    // Случайное действие, которое кандидат предпримет в этом ходу
+    private GameAction[] plannedCandidateActions;
+    private Candidate[] plannedCandidateTargets;
 
     private void Start()
     {
@@ -69,8 +71,11 @@ public class CandidateCardsController : MonoBehaviour
         pendingActions = new GameAction[cardUIs.Count];
         pendingTargets = new Candidate[cardUIs.Count];
 
-        // Подписываемся на колбэк подтверждения действия
+        plannedCandidateActions = new GameAction[cardUIs.Count];
+        plannedCandidateTargets = new Candidate[cardUIs.Count];
+
         if (actionTooltip != null)
+        {
             actionTooltip.OnActionConfirmed = (action, actor, target) =>
             {
                 int idx = candidates.IndexOf(actor);
@@ -78,11 +83,11 @@ public class CandidateCardsController : MonoBehaviour
                 {
                     pendingActions[idx] = action;
                     pendingTargets[idx] = target;
-                    Debug.Log($"[CandidateCardsController] Сохранено действие '{action.name}' для {actor.Name}");
+                    Debug.Log($"[CandidateCardsController] Сохранено действие игрока '{action.name}' для {actor.Name}");
                 }
             };
+        }
 
-        // Создаём HashSet для отслеживания использованных классов (для уникальности)
         HashSet<string> usedClasses = new HashSet<string>();
 
         for (int i = 0; i < cardUIs.Count; i++)
@@ -90,45 +95,95 @@ public class CandidateCardsController : MonoBehaviour
             Candidate candidate = new Candidate(usedClasses);
             candidates.Add(candidate);
 
-            // Добавляем класс этого персонажа в HashSet для следующих персонажей
             if (candidate.Abilities.Count > 0)
-            {
                 usedClasses.Add(candidate.Abilities[0].name);
-            }
+        }
 
-            ActionOption[] playerActions = new ActionOption[allActions.Count];
-            for (int j = 0; j < allActions.Count; j++)
-            {
-                playerActions[j] = new ActionOption
-                {
-                    title = allActions[j].name,
-                    description = allActions[j].description
-                };
-            }
+        RebuildPlannedCandidateActions();
+        ApplyAllCards();
+    }
 
-            List<ActionOption> aiActionsForCard = new List<ActionOption>();
-            List<int> used = new List<int>();
-            for (int k = 0; k < 3; k++)
+    private void RebuildPlannedCandidateActions()
+    {
+        if (allActions == null || allActions.Count == 0 || candidates == null)
+            return;
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            int randomIdx = Random.Range(0, allActions.Count);
+            plannedCandidateActions[i] = allActions[randomIdx];
+            plannedCandidateTargets[i] = GetDefaultTargetFor(i);
+        }
+    }
+
+    private Candidate GetDefaultTargetFor(int actorIndex)
+    {
+        if (candidates == null || candidates.Count <= 1)
+            return null;
+
+        for (int t = 0; t < candidates.Count; t++)
+        {
+            if (t != actorIndex)
+                return candidates[t];
+        }
+
+        return null;
+    }
+
+    private ActionOption[] BuildPlayerActions()
+    {
+        if (allActions == null || allActions.Count == 0)
+            return new ActionOption[0];
+
+        ActionOption[] playerActions = new ActionOption[allActions.Count];
+        for (int j = 0; j < allActions.Count; j++)
+        {
+            playerActions[j] = new ActionOption
             {
-                int idx;
-                do { idx = Random.Range(0, allActions.Count); } while (used.Contains(idx) && used.Count < allActions.Count);
-                used.Add(idx);
-                aiActionsForCard.Add(new ActionOption
-                {
-                    title = allActions[idx].name,
-                    description = allActions[idx].description
-                });
+                title = allActions[j].name,
+                description = allActions[j].description
+            };
+        }
+
+        return playerActions;
+    }
+
+    private ActionOption[] BuildCandidateActionPreview(int index)
+    {
+        if (plannedCandidateActions == null || index < 0 || index >= plannedCandidateActions.Length)
+            return new ActionOption[0];
+
+        GameAction planned = plannedCandidateActions[index];
+        if (planned == null)
+            return new ActionOption[0];
+
+        return new[]
+        {
+            new ActionOption
+            {
+                title = planned.name,
+                description = planned.description
             }
+        };
+    }
+
+    private void ApplyAllCards()
+    {
+        ActionOption[] playerActions = BuildPlayerActions();
+
+        for (int i = 0; i < cardUIs.Count && i < candidates.Count; i++)
+        {
+            Candidate candidate = candidates[i];
 
             CharacterData data = new CharacterData
             {
                 characterName = candidate.Name,
                 skills = new[]
                 {
-                    $"ВЛН: {candidate.Influence}",
-                    $"ИНТ: {candidate.Intellect}",
-                    $"ВОЛ: {candidate.Willpower}",
-                    $"ФИН: {candidate.Money}"
+                    $"Влияние: {candidate.Influence}",
+                    $"Интеллект: {candidate.Intellect}",
+                    $"Воля: {candidate.Willpower}",
+                    $"Деньги: {candidate.Money}"
                 },
                 abilities = candidate.Abilities.ToArray(),
                 abilityCount = candidate.Abilities.Count,
@@ -137,7 +192,7 @@ public class CandidateCardsController : MonoBehaviour
                 age = candidate.Age,
                 candidate = candidate,
                 playerActions = playerActions,
-                aiActions = aiActionsForCard.ToArray()
+                aiActions = BuildCandidateActionPreview(i)
             };
 
             cardUIs[i].Apply(data);
@@ -150,16 +205,7 @@ public class CandidateCardsController : MonoBehaviour
 
                 GameAction selectedAction = allActions[actionIndex];
                 Candidate actor = candidates[cardIndex];
-
-                Candidate target = null;
-                for (int t = 0; t < candidates.Count; t++)
-                {
-                    if (t != cardIndex)
-                    {
-                        target = candidates[t];
-                        break;
-                    }
-                }
+                Candidate target = GetDefaultTargetFor(cardIndex);
 
                 if (actionTooltip != null)
                     actionTooltip.Show(selectedAction, actor, target);
@@ -169,82 +215,63 @@ public class CandidateCardsController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Выполняет все сохранённые действия и обновляет UI карточек.
-    /// Вызывается из President.NextTurn()
-    /// </summary>
-    public void ExecuteAllActions()
+    public List<CandidateTurnChange> ExecuteAllActions()
     {
-        if (pendingActions == null) return;
+        List<CandidateTurnChange> changes = new List<CandidateTurnChange>();
+
+        if (candidates == null || candidates.Count == 0)
+            return changes;
 
         for (int i = 0; i < candidates.Count; i++)
         {
-            if (pendingActions[i] != null)
+            Candidate candidate = candidates[i];
+            CandidateSnapshot before = new CandidateSnapshot(candidate);
+
+            // 1. Сначала выполняем действие, которое подтвердил игрок
+            if (pendingActions != null && pendingActions[i] != null)
             {
-                Debug.Log($"[CandidateCardsController] Выполняю '{pendingActions[i].name}' для {candidates[i].Name}");
-                pendingActions[i].Execute(candidates[i], pendingTargets[i]);
+                Debug.Log($"[CandidateCardsController] Выполняю действие игрока '{pendingActions[i].name}' для {candidate.Name}");
+                pendingActions[i].Execute(candidate, pendingTargets[i]);
                 pendingActions[i] = null;
                 pendingTargets[i] = null;
             }
-        }
 
-        // Обновляем UI всех карточек
-        RefreshAllCards();
-    }
-
-    private void RefreshAllCards()
-    {
-        ActionOption[] playerActionOptions = null;
-        if (allActions != null && allActions.Count > 0)
-        {
-            playerActionOptions = new ActionOption[allActions.Count];
-            for (int j = 0; j < allActions.Count; j++)
-                playerActionOptions[j] = new ActionOption
-                {
-                    title = allActions[j].name,
-                    description = allActions[j].description
-                };
-        }
-
-        for (int i = 0; i < cardUIs.Count && i < candidates.Count; i++)
-        {
-            Candidate c = candidates[i];
-
-            // Каждый ход — новое случайное действие для AI
-            ActionOption[] aiAction = null;
-            if (allActions != null && allActions.Count > 0)
+            // 2. Потом выполняем случайное действие кандидата
+            if (plannedCandidateActions != null && plannedCandidateActions[i] != null)
             {
-                int randomIdx = Random.Range(0, allActions.Count);
-                aiAction = new ActionOption[]
-                {
-                    new ActionOption
-                    {
-                        title = allActions[randomIdx].name,
-                        description = allActions[randomIdx].description
-                    }
-                };
+                Debug.Log($"[CandidateCardsController] Выполняю действие кандидата '{plannedCandidateActions[i].name}' для {candidate.Name}");
+                plannedCandidateActions[i].Execute(candidate, plannedCandidateTargets[i]);
             }
 
-            CharacterData data = new CharacterData
+            CandidateSnapshot after = new CandidateSnapshot(candidate);
+
+            CandidateTurnChange change = new CandidateTurnChange
             {
-                characterName = c.Name,
-                skills = new[]
-                {
-                    $"Влияние: {c.Influence}",
-                    $"Интеллект: {c.Intellect}",
-                    $"Воля: {c.Willpower}",
-                    $"Деньги: {c.Money}"
-                },
-                abilities = c.Abilities.ToArray(),
-                abilityCount = c.Abilities.Count,
-                hp = c.Influence,
-                insanity = c.Intellect,
-                age = c.Age,
-                candidate = c,
-                playerActions = playerActionOptions,
-                aiActions = aiAction
+                candidateName = candidate.Name,
+
+                influenceBefore = before.influence,
+                influenceAfter = after.influence,
+
+                intellectBefore = before.intellect,
+                intellectAfter = after.intellect,
+
+                willpowerBefore = before.willpower,
+                willpowerAfter = after.willpower,
+
+                moneyBefore = before.money,
+                moneyAfter = after.money
             };
-            cardUIs[i].Apply(data);
+
+            if (change.HasChanges)
+                changes.Add(change);
         }
+
+        // Генерируем новые случайные действия на следующий ход
+        RebuildPlannedCandidateActions();
+
+        // Обновляем UI всех карточек
+        ApplyAllCards();
+
+        return changes;
     }
 }
