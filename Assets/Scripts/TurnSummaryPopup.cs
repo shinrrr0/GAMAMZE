@@ -21,6 +21,12 @@ public class CandidateTurnChange
     public int moneyBefore;
     public int moneyAfter;
 
+    // Информация о действии игрока
+    public ActionExecutionResult playerActionResult;
+    
+    // Информация о действии AI
+    public ActionExecutionResult aiActionResult;
+
     public bool HasChanges =>
         influenceBefore != influenceAfter ||
         intellectBefore != intellectAfter ||
@@ -30,36 +36,66 @@ public class CandidateTurnChange
     public string GetSummaryText()
     {
         StringBuilder sb = new StringBuilder();
-        sb.AppendLine(candidateName + ":");
+        sb.AppendLine($"<b>{candidateName}</b>");
+        sb.AppendLine();
 
+        // Действие игрока
+        if (!string.IsNullOrEmpty(playerActionResult.actionName))
+        {
+            sb.AppendLine($"<color=#FFD700>🎮 Действие игрока: {playerActionResult.actionName}</color>");
+            sb.AppendLine($"  Проверка: {playerActionResult.statChecked} ({playerActionResult.statValue})");
+            sb.AppendLine($"  Бросок d10: {playerActionResult.diceRoll} → Итого: {playerActionResult.checkTotal}");
+            sb.AppendLine($"  {playerActionResult.outcomeText}");
+            sb.AppendLine($"  Результат: {playerActionResult.resultDescription}");
+            sb.AppendLine();
+        }
+
+        // Действие AI
+        if (!string.IsNullOrEmpty(aiActionResult.actionName))
+        {
+            sb.AppendLine($"<color=#00FF00>🤖 Действие кандидата: {aiActionResult.actionName}</color>");
+            sb.AppendLine($"  Проверка: {aiActionResult.statChecked} ({aiActionResult.statValue})");
+            sb.AppendLine($"  Бросок d10: {aiActionResult.diceRoll} → Итого: {aiActionResult.checkTotal}");
+            sb.AppendLine($"  {aiActionResult.outcomeText}");
+            sb.AppendLine($"  Результат: {aiActionResult.resultDescription}");
+            sb.AppendLine();
+        }
+
+        // Итоговые изменения характеристик
+        sb.AppendLine("<b>📊 Итоговые изменения:</b>");
+        
         bool any = false;
 
         if (influenceBefore != influenceAfter)
         {
-            sb.AppendLine($"- Влияние: {influenceBefore} → {influenceAfter}");
+            string change = influenceAfter > influenceBefore ? $"<color=#00FF00>+{influenceAfter - influenceBefore}</color>" : $"<color=#FF0000>{influenceAfter - influenceBefore}</color>";
+            sb.AppendLine($"  Влияние: {influenceBefore} → {influenceAfter} {change}");
             any = true;
         }
 
         if (intellectBefore != intellectAfter)
         {
-            sb.AppendLine($"- Интеллект: {intellectBefore} → {intellectAfter}");
+            string change = intellectAfter > intellectBefore ? $"<color=#00FF00>+{intellectAfter - intellectBefore}</color>" : $"<color=#FF0000>{intellectAfter - intellectBefore}</color>";
+            sb.AppendLine($"  Интеллект: {intellectBefore} → {intellectAfter} {change}");
             any = true;
         }
 
         if (willpowerBefore != willpowerAfter)
         {
-            sb.AppendLine($"- Воля: {willpowerBefore} → {willpowerAfter}");
+            string change = willpowerAfter > willpowerBefore ? $"<color=#00FF00>+{willpowerAfter - willpowerBefore}</color>" : $"<color=#FF0000>{willpowerAfter - willpowerBefore}</color>";
+            sb.AppendLine($"  Воля: {willpowerBefore} → {willpowerAfter} {change}");
             any = true;
         }
 
         if (moneyBefore != moneyAfter)
         {
-            sb.AppendLine($"- Деньги: {moneyBefore} → {moneyAfter}");
+            string change = moneyAfter > moneyBefore ? $"<color=#00FF00>+{moneyAfter - moneyBefore}</color>" : $"<color=#FF0000>{moneyAfter - moneyBefore}</color>";
+            sb.AppendLine($"  Деньги: {moneyBefore} → {moneyAfter} {change}");
             any = true;
         }
 
         if (!any)
-            sb.AppendLine("- без изменений");
+            sb.AppendLine("  Нет изменений");
 
         return sb.ToString().TrimEnd();
     }

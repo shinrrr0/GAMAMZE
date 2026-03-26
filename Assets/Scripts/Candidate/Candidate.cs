@@ -126,10 +126,10 @@ public class Candidate
         Name = GenerateRandomName();
         Age = Random.Range(35, 71);
 
-        Influence = Random.Range(30, 101);
-        Intellect = Random.Range(30, 101);
-        Money = Random.Range(30, 101);
-        Willpower = Random.Range(30, 101);
+        Influence = Random.Range(3, 7);
+        Intellect = Random.Range(3, 7);
+        Money = Random.Range(3, 7);
+        Willpower = Random.Range(3, 7);
 
         Abilities = GenerateRandomAbilities();
         Background = GenerateRandomBackground();

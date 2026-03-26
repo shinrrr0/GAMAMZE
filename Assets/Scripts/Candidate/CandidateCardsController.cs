@@ -226,12 +226,14 @@ public class CandidateCardsController : MonoBehaviour
         {
             Candidate candidate = candidates[i];
             CandidateSnapshot before = new CandidateSnapshot(candidate);
+            ActionExecutionResult playerResult = new ActionExecutionResult();
+            ActionExecutionResult aiResult = new ActionExecutionResult();
 
             // 1. Сначала выполняем действие, которое подтвердил игрок
             if (pendingActions != null && pendingActions[i] != null)
             {
                 Debug.Log($"[CandidateCardsController] Выполняю действие игрока '{pendingActions[i].name}' для {candidate.Name}");
-                pendingActions[i].Execute(candidate, pendingTargets[i]);
+                playerResult = ExecuteActionByName(pendingActions[i].name, candidate, pendingTargets[i]);
                 pendingActions[i] = null;
                 pendingTargets[i] = null;
             }
@@ -240,7 +242,7 @@ public class CandidateCardsController : MonoBehaviour
             if (plannedCandidateActions != null && plannedCandidateActions[i] != null)
             {
                 Debug.Log($"[CandidateCardsController] Выполняю действие кандидата '{plannedCandidateActions[i].name}' для {candidate.Name}");
-                plannedCandidateActions[i].Execute(candidate, plannedCandidateTargets[i]);
+                aiResult = ExecuteActionByName(plannedCandidateActions[i].name, candidate, plannedCandidateTargets[i]);
             }
 
             CandidateSnapshot after = new CandidateSnapshot(candidate);
@@ -259,10 +261,13 @@ public class CandidateCardsController : MonoBehaviour
                 willpowerAfter = after.willpower,
 
                 moneyBefore = before.money,
-                moneyAfter = after.money
+                moneyAfter = after.money,
+
+                playerActionResult = playerResult,
+                aiActionResult = aiResult
             };
 
-            if (change.HasChanges)
+            if (change.HasChanges || !string.IsNullOrEmpty(playerResult.actionName) || !string.IsNullOrEmpty(aiResult.actionName))
                 changes.Add(change);
         }
 
@@ -273,5 +278,18 @@ public class CandidateCardsController : MonoBehaviour
         ApplyAllCards();
 
         return changes;
+    }
+
+    private ActionExecutionResult ExecuteActionByName(string actionName, Candidate actor, Candidate target)
+    {
+        return actionName switch
+        {
+            "Воровство" => CandidateActions.Steal(actor),
+            "Лобирование" => CandidateActions.Lobby(actor),
+            "Обращение важное" => CandidateActions.MajorAppeal(actor, 0),
+            "Интриги" => CandidateActions.Intrigue(actor, target),
+            "Дебаты" => CandidateActions.Debate(actor, target),
+            _ => new ActionExecutionResult { actionName = actionName, resultDescription = "Действие не найдено" }
+        };
     }
 }
