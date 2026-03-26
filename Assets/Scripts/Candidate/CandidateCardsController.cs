@@ -292,4 +292,9 @@ public class CandidateCardsController : MonoBehaviour
             _ => new ActionExecutionResult { actionName = actionName, resultDescription = "Действие не найдено" }
         };
     }
+
+    public List<Candidate> GetCandidates()
+    {
+        return new List<Candidate>(candidates);
+    }
 }
