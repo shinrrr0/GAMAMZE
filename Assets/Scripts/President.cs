@@ -5,6 +5,8 @@ using UnityEngine.UI;
 
 public class President : MonoBehaviour
 {
+    public static President Current { get; private set; }
+
     public int hp = 30;
     public int insanity = 80;
     public int age = 40;
@@ -23,6 +25,14 @@ public class President : MonoBehaviour
     [SerializeField] private CandidateCardsController candidateCardsController;
 
     private bool finalCrisisTriggered = false;
+    public bool LastTurnHadNewCrisis { get; private set; }
+
+    public CandidateCardsController CandidateController => candidateCardsController;
+
+    private void Awake()
+    {
+        Current = this;
+    }
 
     private void Start()
     {
@@ -40,6 +50,7 @@ public class President : MonoBehaviour
 
         int hpBefore = hp;
         int insanityBefore = insanity;
+        LastTurnHadNewCrisis = false;
 
         List<CandidateTurnChange> candidateChanges = new List<CandidateTurnChange>();
 
@@ -63,11 +74,32 @@ public class President : MonoBehaviour
         if (shouldTriggerFinalCrisis)
         {
             TriggerFinalCrisis();
+            LastTurnHadNewCrisis = true;
         }
-        else if (Random.Range(0, 101) <= 15 + (insanity * 2))
+        else
         {
-            newCrisis = AddRandomCrisis();
+            bool noCrisisForced = false;
+            if (candidateCardsController != null)
+            {
+                foreach (Candidate candidate in candidateCardsController.GetCandidates())
+                {
+                    if (candidate != null && candidate.NoCrisisNextTurn)
+                    {
+                        noCrisisForced = true;
+                        candidate.NoCrisisNextTurn = false;
+                    }
+                }
+            }
+
+            if (!noCrisisForced && Random.Range(0, 101) <= 15 + (insanity * 2))
+            {
+                newCrisis = AddRandomCrisis();
+                LastTurnHadNewCrisis = newCrisis != null;
+            }
         }
+
+        if (candidateCardsController != null)
+            candidateCardsController.ResolveEndOfTurnEffects(LastTurnHadNewCrisis);
 
         PresidentTurnChange presidentChange = new PresidentTurnChange
         {
@@ -102,8 +134,6 @@ public class President : MonoBehaviour
 
         if (crisisTooltip != null)
             crisisTooltip.ShowCrisis(randomCrisis);
-        else
-            Debug.LogWarning("[President] CrisisTooltip не привязан в инспекторе.");
 
         return randomCrisis;
     }
@@ -129,10 +159,7 @@ public class President : MonoBehaviour
             nextTurnButton.interactable = false;
 
         if (crisisTooltip == null)
-        {
-            Debug.LogWarning("[President] CrisisTooltip не привязан в инспекторе. Финальный кризис показан не будет.");
             return;
-        }
 
         List<Candidate> candidates = candidateCardsController != null
             ? candidateCardsController.GetCandidates()

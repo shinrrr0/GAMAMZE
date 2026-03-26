@@ -17,11 +17,9 @@ public class CandidateCardsController : MonoBehaviour
     private List<CharacterCardUI> cardUIs = new List<CharacterCardUI>();
     private List<GameAction> allActions = new List<GameAction>();
 
-    // Действие, выбранное игроком вручную
     private GameAction[] pendingActions;
     private Candidate[] pendingTargets;
 
-    // Случайное действие, которое кандидат предпримет в этом ходу
     private GameAction[] plannedCandidateActions;
     private Candidate[] plannedCandidateTargets;
 
@@ -83,7 +81,6 @@ public class CandidateCardsController : MonoBehaviour
                 {
                     pendingActions[idx] = action;
                     pendingTargets[idx] = target;
-                    Debug.Log($"[CandidateCardsController] Сохранено действие игрока '{action.name}' для {actor.Name}");
                 }
             };
         }
@@ -105,13 +102,17 @@ public class CandidateCardsController : MonoBehaviour
 
     private void RebuildPlannedCandidateActions()
     {
-        if (allActions == null || allActions.Count == 0 || candidates == null)
+        if (candidates == null)
             return;
 
         for (int i = 0; i < candidates.Count; i++)
         {
-            int randomIdx = Random.Range(0, allActions.Count);
-            plannedCandidateActions[i] = allActions[randomIdx];
+            List<GameAction> available = BuildActionListForCandidate(candidates[i]);
+            if (available.Count == 0)
+                continue;
+
+            int randomIdx = Random.Range(0, available.Count);
+            plannedCandidateActions[i] = available[randomIdx];
             plannedCandidateTargets[i] = GetDefaultTargetFor(i);
         }
     }
@@ -123,6 +124,12 @@ public class CandidateCardsController : MonoBehaviour
 
         for (int t = 0; t < candidates.Count; t++)
         {
+            if (t != actorIndex && !candidates[t].IsInPrison)
+                return candidates[t];
+        }
+
+        for (int t = 0; t < candidates.Count; t++)
+        {
             if (t != actorIndex)
                 return candidates[t];
         }
@@ -130,18 +137,31 @@ public class CandidateCardsController : MonoBehaviour
         return null;
     }
 
-    private ActionOption[] BuildPlayerActions()
+    private List<GameAction> BuildActionListForCandidate(Candidate candidate)
     {
-        if (allActions == null || allActions.Count == 0)
-            return new ActionOption[0];
+        List<GameAction> actions = new List<GameAction>();
 
-        ActionOption[] playerActions = new ActionOption[allActions.Count];
-        for (int j = 0; j < allActions.Count; j++)
+        if (allActions != null)
+            actions.AddRange(allActions);
+
+        GameAction classAction = ActionDatabase.GetClassAction(candidate);
+        if (classAction != null)
+            actions.Insert(0, classAction);
+
+        return actions;
+    }
+
+    private ActionOption[] BuildPlayerActions(Candidate candidate)
+    {
+        List<GameAction> actions = BuildActionListForCandidate(candidate);
+        ActionOption[] playerActions = new ActionOption[actions.Count];
+
+        for (int j = 0; j < actions.Count; j++)
         {
             playerActions[j] = new ActionOption
             {
-                title = allActions[j].name,
-                description = allActions[j].description
+                title = actions[j].name,
+                description = actions[j].description
             };
         }
 
@@ -169,15 +189,13 @@ public class CandidateCardsController : MonoBehaviour
 
     private void ApplyAllCards()
     {
-        ActionOption[] playerActions = BuildPlayerActions();
-
         for (int i = 0; i < cardUIs.Count && i < candidates.Count; i++)
         {
             Candidate candidate = candidates[i];
 
             CharacterData data = new CharacterData
             {
-                characterName = candidate.Name,
+                characterName = candidate.IsInPrison ? $"{candidate.Name} [ТЮРЬМА]" : candidate.Name,
                 skills = new[]
                 {
                     $"Влияние: {candidate.Influence}",
@@ -191,7 +209,7 @@ public class CandidateCardsController : MonoBehaviour
                 insanity = candidate.Intellect,
                 age = candidate.Age,
                 candidate = candidate,
-                playerActions = playerActions,
+                playerActions = BuildPlayerActions(candidate),
                 aiActions = BuildCandidateActionPreview(i)
             };
 
@@ -200,17 +218,16 @@ public class CandidateCardsController : MonoBehaviour
             int cardIndex = i;
             cardUIs[i].OnPlayerActionSelected = (actionIndex) =>
             {
-                if (actionIndex < 0 || actionIndex >= allActions.Count)
+                List<GameAction> candidateActions = BuildActionListForCandidate(candidates[cardIndex]);
+                if (actionIndex < 0 || actionIndex >= candidateActions.Count)
                     return;
 
-                GameAction selectedAction = allActions[actionIndex];
+                GameAction selectedAction = candidateActions[actionIndex];
                 Candidate actor = candidates[cardIndex];
                 Candidate target = GetDefaultTargetFor(cardIndex);
 
                 if (actionTooltip != null)
                     actionTooltip.Show(selectedAction, actor, target);
-                else
-                    Debug.LogWarning("[CandidateCardsController] ActionTooltip не привязан!");
             };
         }
     }
@@ -229,40 +246,49 @@ public class CandidateCardsController : MonoBehaviour
             ActionExecutionResult playerResult = new ActionExecutionResult();
             ActionExecutionResult aiResult = new ActionExecutionResult();
 
-            // 1. Сначала выполняем действие, которое подтвердил игрок
+            if (candidate.IsInPrison)
+            {
+                candidate.TickPrison();
+                changes.Add(new CandidateTurnChange
+                {
+                    candidateName = candidate.Name,
+                    influenceBefore = before.influence,
+                    influenceAfter = candidate.Influence,
+                    intellectBefore = before.intellect,
+                    intellectAfter = candidate.Intellect,
+                    willpowerBefore = before.willpower,
+                    willpowerAfter = candidate.Willpower,
+                    moneyBefore = before.money,
+                    moneyAfter = candidate.Money,
+                    playerActionResult = new ActionExecutionResult { actionName = "—", resultDescription = "Кандидат в тюрьме и пропускает ход" },
+                    aiActionResult = new ActionExecutionResult()
+                });
+                continue;
+            }
+
             if (pendingActions != null && pendingActions[i] != null)
             {
-                Debug.Log($"[CandidateCardsController] Выполняю действие игрока '{pendingActions[i].name}' для {candidate.Name}");
                 playerResult = ExecuteActionByName(pendingActions[i].name, candidate, pendingTargets[i]);
                 pendingActions[i] = null;
                 pendingTargets[i] = null;
             }
 
-            // 2. Потом выполняем случайное действие кандидата
             if (plannedCandidateActions != null && plannedCandidateActions[i] != null)
-            {
-                Debug.Log($"[CandidateCardsController] Выполняю действие кандидата '{plannedCandidateActions[i].name}' для {candidate.Name}");
                 aiResult = ExecuteActionByName(plannedCandidateActions[i].name, candidate, plannedCandidateTargets[i]);
-            }
 
             CandidateSnapshot after = new CandidateSnapshot(candidate);
 
             CandidateTurnChange change = new CandidateTurnChange
             {
                 candidateName = candidate.Name,
-
                 influenceBefore = before.influence,
                 influenceAfter = after.influence,
-
                 intellectBefore = before.intellect,
                 intellectAfter = after.intellect,
-
                 willpowerBefore = before.willpower,
                 willpowerAfter = after.willpower,
-
                 moneyBefore = before.money,
                 moneyAfter = after.money,
-
                 playerActionResult = playerResult,
                 aiActionResult = aiResult
             };
@@ -271,13 +297,24 @@ public class CandidateCardsController : MonoBehaviour
                 changes.Add(change);
         }
 
-        // Генерируем новые случайные действия на следующий ход
         RebuildPlannedCandidateActions();
-
-        // Обновляем UI всех карточек
         ApplyAllCards();
 
         return changes;
+    }
+
+    public void ResolveEndOfTurnEffects(bool crisisHappened)
+    {
+        if (candidates == null)
+            return;
+
+        foreach (Candidate candidate in candidates)
+        {
+            CandidateActions.ResolvePredictionOutcome(candidate, crisisHappened);
+            CandidateActions.ResolvePassiveTurnEffects(candidate);
+        }
+
+        ApplyAllCards();
     }
 
     private ActionExecutionResult ExecuteActionByName(string actionName, Candidate actor, Candidate target)
@@ -289,6 +326,13 @@ public class CandidateCardsController : MonoBehaviour
             "Обращение важное" => CandidateActions.MajorAppeal(actor, 0),
             "Интриги" => CandidateActions.Intrigue(actor, target),
             "Дебаты" => CandidateActions.Debate(actor, target),
+            "Написать пост в тг" => CandidateActions.PhilosopherPost(actor),
+            "Сделать разоблачение" => CandidateActions.AntiCorruptionExpose(actor),
+            "Поднять мятеж" => CandidateActions.RaiseMutiny(actor),
+            "Провести полит стрим" => CandidateActions.PoliticalStream(actor, target),
+            "Сделать предсказание" => CandidateActions.MakePrediction(actor),
+            "Написать донос" => CandidateActions.FileReport(actor, target),
+            "Фиксируем прибыль" => CandidateActions.CashOutInvestments(actor),
             _ => new ActionExecutionResult { actionName = actionName, resultDescription = "Действие не найдено" }
         };
     }

@@ -10,12 +10,11 @@ public class Ability
 {
     public string name;
     public Sprite icon;
-    public Color color = Color.red; // Цвет для отображения спрайта
+    public Color color = Color.red;
     
     [TextArea(2, 4)]
     public string description;
     
-    // Кэшированная ссылка на функцию
     private AbilityFunction cachedFunction;
     
     public Ability()
@@ -36,27 +35,17 @@ public class Ability
         this.cachedFunction = null;
     }
     
-    /// <summary>
-    /// Устанавливает функцию, которая будет вызываться при использовании способности
-    /// </summary>
     public void SetFunction(AbilityFunction function)
     {
         cachedFunction = function;
     }
     
-    /// <summary>
-    /// Исполняет механику способности
-    /// </summary>
     public void Execute()
     {
         if (cachedFunction != null)
-        {
             cachedFunction.Invoke();
-        }
         else
-        {
             Debug.LogWarning($"[Ability] Функция для способности '{name}' не установлена!");
-        }
     }
 }
 
@@ -71,56 +60,35 @@ public class Candidate
     private int willpower;
     private List<Ability> abilities;
     private string background;
-    // Свойства
-    public string Name
+
+    public string Name { get => name; set => name = value; }
+    public int Age { get => age; set => age = value; }
+    public int Influence { get => influence; set => influence = value; }
+    public int Intellect { get => intellect; set => intellect = value; }
+    public int Money { get => money; set => money = value; }
+    public int Willpower { get => willpower; set => willpower = value; }
+    public List<Ability> Abilities { get => abilities; set => abilities = value; }
+    public string Background { get => background; set => background = value; }
+
+    public bool NoCrisisNextTurn { get; set; }
+    public int InvestmentCount { get; set; }
+    public bool PredictedCrisisNextTurn { get; set; }
+    public int PredictionTurnIssued { get; set; } = -1;
+    public int PrisonTurnsLeft { get; set; }
+
+    public bool IsInPrison => PrisonTurnsLeft > 0;
+
+    public string ClassName
     {
-        get { return name; }
-        set { name = value; }
+        get
+        {
+            if (Abilities == null || Abilities.Count == 0 || Abilities[0] == null)
+                return string.Empty;
+
+            return Abilities[0].name ?? string.Empty;
+        }
     }
 
-    public int Age
-    {
-        get { return age; }
-        set { age = value; }
-    }
-
-    public int Influence
-    {
-        get { return influence; }
-        set { influence = value; }
-    }
-
-    public int Intellect
-    {
-        get { return intellect; }
-        set { intellect = value; }
-    }
-
-    public int Money
-    {
-        get { return money; }
-        set { money = value; }
-    }
-
-    public int Willpower
-    {
-        get { return willpower; }
-        set { willpower = value; }
-    }
-
-    public List<Ability> Abilities
-    {
-        get { return abilities; }
-        set { abilities = value; }
-    }
-
-    public string Background
-    {
-        get { return background; }
-        set { background = value; }
-    }
-
-    // конструктор
     public Candidate()
     {
         Name = GenerateRandomName();
@@ -133,11 +101,9 @@ public class Candidate
 
         Abilities = GenerateRandomAbilities();
         Background = GenerateRandomBackground();
+        InitializeClassState();
     }
 
-    /// <summary>
-    /// Конструктор с поддержкой уникальных классов
-    /// </summary>
     public Candidate(HashSet<string> usedClasses)
     {
         Name = GenerateRandomName();
@@ -150,9 +116,9 @@ public class Candidate
 
         Abilities = GenerateRandomAbilities(usedClasses);
         Background = GenerateRandomBackground();
+        InitializeClassState();
     }
 
-    // тут заданные данные
     public Candidate(string name, int age, int influence, int intellect, int money, int willpower, List<Ability> abilities, string background)
     {
         Name = name;
@@ -163,28 +129,29 @@ public class Candidate
         Willpower = willpower;
         Abilities = abilities ?? new List<Ability>();
         Background = background;
+        InitializeClassState();
+    }
+
+    private void InitializeClassState()
+    {
+        InvestmentCount = ClassName.Equals("Моральный богач", System.StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        PrisonTurnsLeft = 0;
+        PredictedCrisisNextTurn = false;
+        PredictionTurnIssued = -1;
     }
 
     private static string GenerateRandomName()
     {
-        // Определяем пол случайно (true = женский, false = мужской)
         bool isFemale = Random.value > 0.5f;
         return GenerateRandomName(isFemale);
     }
 
-    /// <summary>
-    /// Генерирует имя и фамилию для персонажа с синхронизацией по полу
-    /// </summary>
     private static string GenerateRandomName(bool isFemale)
     {
-        // Мужские имена
         var maleFirstNames = new[] { "Алексей", "Иван", "Дмитрий", "Сергей", "Павел", "Николай", "Петр", "Михаил" };
-        // Женские имена
         var femaleFirstNames = new[] { "Мария", "Ольга", "Наталья", "Екатерина", "Анна", "Елена", "Людмила", "Виктория" };
 
-        // Мужские фамилии
         var maleLastNames = new[] { "Иванов", "Петров", "Смирнов", "Соколов", "Лебедев", "Новиков", "Морозов", "Сидоров" };
-        // Женские фамилии (окончание -а/-ова/-ева вместо -о/-ов/-ев)
         var femaleLastNames = new[] { "Иванова", "Петрова", "Смирнова", "Соколова", "Лебедева", "Новикова", "Морозова", "Сидорова" };
 
         string firstName;
@@ -206,50 +173,35 @@ public class Candidate
 
     private static List<Ability> GenerateRandomAbilities()
     {
-        // Инициализируем базы данных
         ClassDatabase.Initialize();
         AbilityDatabase.Initialize();
         
         List<Ability> abilities = new List<Ability>();
-        
-        // Первая способность - это класс персонажа (ровно 1)
         Ability playerClass = ClassDatabase.GetRandomClass();
         abilities.Add(new Ability(playerClass.name, playerClass.icon, playerClass.description, playerClass.color));
         
-        // Остальные способности генерируются от 0 до 2 (на 1 меньше, чем было)
-        int additionalAbilityCount = Random.Range(0, 3); // 0, 1 или 2
-        
+        int additionalAbilityCount = Random.Range(0, 3);
         List<Ability> randomAbilities = AbilityDatabase.GetRandomAbilities(additionalAbilityCount);
         abilities.AddRange(randomAbilities);
         
         return abilities;
     }
 
-    /// <summary>
-    /// Генерирует способности с учётом уже использованных классов (для уникальности)
-    /// </summary>
     private static List<Ability> GenerateRandomAbilities(HashSet<string> usedClasses)
     {
-        // Инициализируем базы данных
         ClassDatabase.Initialize();
         AbilityDatabase.Initialize();
         
         List<Ability> abilities = new List<Ability>();
-        
-        // Первая способность - уникальный класс персонажа
         Ability playerClass = ClassDatabase.GetRandomClassExcluding(usedClasses);
         abilities.Add(new Ability(playerClass.name, playerClass.icon, playerClass.description, playerClass.color));
         
-        // Остальные способности генерируются от 0 до 2 (на 1 меньше, чем было)
-        int additionalAbilityCount = Random.Range(0, 3); // 0, 1 или 2
-        
+        int additionalAbilityCount = Random.Range(0, 3);
         List<Ability> randomAbilities = AbilityDatabase.GetRandomAbilities(additionalAbilityCount);
         abilities.AddRange(randomAbilities);
         
         return abilities;
     }
-
-    public bool NoCrisisNextTurn { get; set; }
 
     public bool HasAbility(string abilityName)
     {
@@ -272,13 +224,9 @@ public class Candidate
 
         Ability fromDb = AbilityDatabase.GetAllAbilities().FirstOrDefault(a => a.name.Equals(abilityName, System.StringComparison.OrdinalIgnoreCase));
         if (fromDb != null)
-        {
             Abilities.Add(new Ability(fromDb.name, fromDb.icon, fromDb.description, fromDb.color));
-        }
         else
-        {
             Abilities.Add(new Ability(abilityName, null, $"Автоматически добавлена способность '{abilityName}'", Color.white));
-        }
 
         Debug.Log($"[Candidate] {Name} получил способность '{abilityName}'");
     }
@@ -299,6 +247,25 @@ public class Candidate
         return false;
     }
 
+    public void SendToPrison(int turns = 1)
+    {
+        PrisonTurnsLeft = Mathf.Max(PrisonTurnsLeft, turns);
+        AddAbility("В тюрьме");
+    }
+
+    public void TickPrison()
+    {
+        if (PrisonTurnsLeft <= 0)
+            return;
+
+        PrisonTurnsLeft--;
+        if (PrisonTurnsLeft <= 0)
+        {
+            PrisonTurnsLeft = 0;
+            RemoveAbility("В тюрьме");
+        }
+    }
+
     public void ExecuteAbility(string abilityName)
     {
         if (Abilities == null || string.IsNullOrWhiteSpace(abilityName))
@@ -306,13 +273,9 @@ public class Candidate
 
         Ability ab = Abilities.FirstOrDefault(a => a != null && a.name != null && a.name.Equals(abilityName, System.StringComparison.OrdinalIgnoreCase));
         if (ab != null)
-        {
             ab.Execute();
-        }
         else
-        {
             Debug.LogWarning($"[Candidate] {Name} не найдено действие '{abilityName}' для исполнения");
-        }
     }
 
     public void BindAbilitiesToActions()
@@ -325,7 +288,6 @@ public class Candidate
             if (ability == null || string.IsNullOrEmpty(ability.name))
                 continue;
 
-            // Классы персонажей не имеют прямых действий - это профессии/роли
             if (ClassDatabase.IsClass(ability.name))
             {
                 ability.SetFunction(() => Debug.Log($"[Candidate] {Name} использует класс '{ability.name}'"));
@@ -349,8 +311,6 @@ public class Candidate
                 case "Дебаты":
                     ability.SetFunction(() => Debug.LogWarning("[Candidate] Дебаты требуют оппонента: используйте CandidateActions.Debate(actor, opponent)."));
                     break;
-                default:
-                    break;
             }
         }
     }
@@ -364,9 +324,7 @@ public class Candidate
     {
         var abilityNames = new List<string>();
         foreach (var ability in Abilities)
-        {
             abilityNames.Add(ability.name);
-        }
         
         return $"{Name}, {Age} лет — Влияние {Influence}, Интеллект {Intellect}, Деньги {Money}, Воля {Willpower}\n" +
                $"Умения: {string.Join(", ", abilityNames)}\n" +
