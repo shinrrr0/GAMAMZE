@@ -7,6 +7,15 @@ public enum CheckOutcome
     CriticalSuccess
 }
 
+public struct SkillCheckResult
+{
+    public string statName;
+    public int statValue;
+    public int selectedRoll;
+    public int totalValue;
+    public CheckOutcome outcome;
+}
+
 public static class CandidateActions
 {
     private const string CorruptAbilityName = "Коррупционер";
@@ -29,6 +38,28 @@ public static class CandidateActions
 
         Debug.Log($"[CandidateActions] Проверка стата={stat}, d10=({roll1}{(advantage ? "/" + roll2 : "")}) => {selectedRoll}, итого={totalValue} => {outcome}");
         return outcome;
+    }
+
+    public static SkillCheckResult ResolveFinalCrisisSkillCheck(Candidate actor)
+    {
+        SkillCheckResult result = new SkillCheckResult
+        {
+            statName = "Воля",
+            statValue = actor != null ? actor.Willpower : 0,
+            selectedRoll = 0,
+            totalValue = 0,
+            outcome = CheckOutcome.Fail
+        };
+
+        if (actor == null)
+        {
+            Debug.LogWarning("[CandidateActions:FinalCrisis] Кандидат не передан.");
+            return result;
+        }
+
+        result.outcome = ResolveCheck(actor.Willpower, false, out result.selectedRoll, out result.totalValue);
+        Debug.Log($"[CandidateActions:FinalCrisis] {actor.Name} проходит финальный кризис по стату '{result.statName}'={result.statValue}. Бросок={result.selectedRoll}, итог={result.totalValue}, исход={result.outcome}");
+        return result;
     }
 
     public static void Steal(Candidate actor)
