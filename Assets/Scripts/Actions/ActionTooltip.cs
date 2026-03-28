@@ -17,6 +17,9 @@ public class ActionTooltip : MonoBehaviour
     [SerializeField] private Image panelImage;
     [SerializeField] private Color panelBackgroundColor = new Color(0.15f, 0.15f, 0.15f, 0.95f);
 
+    [Header("References")]
+    [SerializeField] private CandidateCardsController candidateCardsController;
+
     private CanvasGroup canvasGroup;
     private GameAction currentAction;
     private Candidate currentActor;
@@ -25,6 +28,12 @@ public class ActionTooltip : MonoBehaviour
     // Колбэк — вызывается когда игрок подтверждает действие
     // Передаёт действие, актора и цель наружу для сохранения
     public Action<GameAction, Candidate, Candidate> OnActionConfirmed;
+    
+    // Колбэк — вызывается при отмене (должен вернуть dropdown на значение 0)
+    public System.Action OnActionCancelled;
+
+    // Список действий, требующих выбор цели
+    private static readonly string[] ActionsRequiringTarget = { "Дебаты", "Интриги", "Написать донос", "Провести полит стрим" };
 
     private void Awake()
     {
@@ -40,6 +49,9 @@ public class ActionTooltip : MonoBehaviour
 
         if (cancelButton != null)
             cancelButton.onClick.AddListener(OnCancel);
+
+        if (candidateCardsController == null)
+            candidateCardsController = FindObjectOfType<CandidateCardsController>();
 
         Close();
     }
@@ -61,15 +73,54 @@ public class ActionTooltip : MonoBehaviour
 
     private void OnConfirm()
     {
-        // Сохраняем выбор через колбэк — не выполняем сразу
-        if (currentAction != null)
-            OnActionConfirmed?.Invoke(currentAction, currentActor, currentTarget);
+        // Проверяем, требует ли действие выбор цели
+        if (ActionRequiresTarget(currentAction))
+        {
+            // Нужно выбрать цель
+            if (candidateCardsController != null)
+            {
+                Close(); // Закрываем tooltip перед началом выбора
+                candidateCardsController.StartCandidateSelection((selectedTarget) =>
+                {
+                    currentTarget = selectedTarget;
+                    // Теперь сохраняем выбор через колбэк
+                    if (currentAction != null)
+                        OnActionConfirmed?.Invoke(currentAction, currentActor, currentTarget);
+                });
+            }
+            else
+            {
+                Debug.LogError("[ActionTooltip] CandidateCardsController не найден!");
+                Close();
+            }
+        }
+        else
+        {
+            // Сохраняем выбор через колбэк — не выполняем сразу
+            if (currentAction != null)
+                OnActionConfirmed?.Invoke(currentAction, currentActor, currentTarget);
 
-        Close();
+            Close();
+        }
+    }
+
+    private bool ActionRequiresTarget(GameAction action)
+    {
+        if (action == null)
+            return false;
+
+        foreach (string targetAction in ActionsRequiringTarget)
+        {
+            if (action.name == targetAction)
+                return true;
+        }
+
+        return false;
     }
 
     private void OnCancel()
     {
+        OnActionCancelled?.Invoke();
         Close();
     }
 

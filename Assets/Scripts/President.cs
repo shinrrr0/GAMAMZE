@@ -24,7 +24,9 @@ public class President : MonoBehaviour
     [Header("Candidates")]
     [SerializeField] private CandidateCardsController candidateCardsController;
 
+    private TextMeshProUGUI actionSelectionStatusText;
     private bool finalCrisisTriggered = false;
+    private float redFlashEndTime = 0f;
     public bool LastTurnHadNewCrisis { get; private set; }
 
     public CandidateCardsController CandidateController => candidateCardsController;
@@ -38,6 +40,69 @@ public class President : MonoBehaviour
     {
         CrisisDatabase.Initialize();
         UpdateUI();
+        
+        // Find Status Text element (should be in the same Grid container as CandidateCardsController)
+        if (candidateCardsController != null)
+        {
+            Transform gridContainer = candidateCardsController.transform.parent;
+            if (gridContainer != null)
+            {
+                Transform statusTextTrans = gridContainer.Find("Status Text");
+                if (statusTextTrans != null)
+                    actionSelectionStatusText = statusTextTrans.GetComponent<TextMeshProUGUI>();
+            }
+        }
+        
+        if (actionSelectionStatusText == null)
+        {
+            // Fallback: try to find it in the entire scene
+            actionSelectionStatusText = FindObjectOfType<TextMeshProUGUI>();
+            foreach (var txt in FindObjectsOfType<TextMeshProUGUI>())
+            {
+                if (txt.gameObject.name == "Status Text")
+                {
+                    actionSelectionStatusText = txt;
+                    break;
+                }
+            }
+        }
+        
+        UpdateActionSelectionStatus();
+    }
+
+    private void Update()
+    {
+        UpdateActionSelectionStatus();
+    }
+
+    private void UpdateActionSelectionStatus()
+    {
+        if (actionSelectionStatusText == null || candidateCardsController == null)
+            return;
+
+        bool allSelected = candidateCardsController.AreAllActionsSelected();
+        
+        // Проверяем, находимся ли мы в красной вспышке
+        bool isInRedFlash = Time.time < redFlashEndTime;
+        
+        if (isInRedFlash)
+        {
+            // Красный свет - не выполняем обновление
+            actionSelectionStatusText.color = Color.red;
+            return;
+        }
+        
+        // Обычное отображение
+        if (allSelected)
+        {
+            actionSelectionStatusText.text = "";
+            actionSelectionStatusText.color = Color.white;
+        }
+        else
+        {
+            actionSelectionStatusText.text = "выберите действия для всех кандидатов";
+            actionSelectionStatusText.color = Color.white;
+        }
     }
 
     public void NextTurn()
@@ -47,6 +112,20 @@ public class President : MonoBehaviour
             LogToText("[President] Финальный кризис уже запущен. Следующий ход недоступен.");
             return;
         }
+
+        // Check if all actions are selected
+        if (candidateCardsController != null && !candidateCardsController.AreAllActionsSelected())
+        {
+            LogToText("[President] Ошибка: не все действия выбраны!");
+            
+            // Activate red flash for 0.5 seconds
+            redFlashEndTime = Time.time + 0.5f;
+            
+            return;
+        }
+
+        // Reset red flash timer if we got here
+        redFlashEndTime = 0f;
 
         int hpBefore = hp;
         int insanityBefore = insanity;
@@ -112,6 +191,7 @@ public class President : MonoBehaviour
         LogToText($"Ход {turnCount}: Возраст {age}, HP {hp}, Безумие {insanity}, Кризисов {activeCrises.Count}");
 
         UpdateUI();
+        UpdateActionSelectionStatus();
 
         if (turnSummaryPopup != null && !shouldTriggerFinalCrisis)
             turnSummaryPopup.ShowSummary(turnCount, presidentChange, candidateChanges, newCrisis);

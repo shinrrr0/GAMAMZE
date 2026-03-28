@@ -268,10 +268,13 @@ public class CharacterCardUI : MonoBehaviour
         playerActionDropdown.ClearOptions();
 
         List<string> options = new List<string>();
+        // Always add "выберите действие" as the default option at index 0
+        options.Add("выберите действие");
+        
         for (int i = 0; i < currentPlayerActions.Length; i++)
             options.Add(currentPlayerActions[i].title);
 
-        if (options.Count == 0)
+        if (options.Count <= 1)
             options.Add("-");
 
         playerActionDropdown.AddOptions(options);
@@ -336,5 +339,14 @@ public class CharacterCardUI : MonoBehaviour
     private void OnPlayerActionChanged(int index)
     {
         OnPlayerActionSelected?.Invoke(index);
+    }
+
+    public void ResetActionDropdown()
+    {
+        if (playerActionDropdown != null)
+        {
+            playerActionDropdown.value = 0;
+            playerActionDropdown.RefreshShownValue();
+        }
     }
 }
