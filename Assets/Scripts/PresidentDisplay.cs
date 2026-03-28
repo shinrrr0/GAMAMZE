@@ -5,218 +5,283 @@ using System.Collections.Generic;
 
 public class PresidentDisplay : MonoBehaviour
 {
-    public President presidentData; 
+    public President presidentData;
 
     [Header("UI Text")]
     public TextMeshProUGUI hpText;
     public TextMeshProUGUI insanityText;
     public TextMeshProUGUI ageText;
-    public TextMeshProUGUI turnText; 
+    public TextMeshProUGUI turnText;
 
-    [Header("UI Crisises")]
-    public Image[] crisisImages;
+    [Header("Optional refs")]
+    [SerializeField] private Button nextTurnButtonOverride;
 
     [Header("Tooltips")]
     [SerializeField] private AbilityTooltip abilityTooltip;
     [SerializeField] private CrisisTooltip crisisTooltip;
 
-    private Crisis[] currentCrises;
+    [Header("Crisis row settings")]
+    [SerializeField] private float gapAfterAge = 18f;
+    [SerializeField] private float gapBeforeTurnButton = 14f;
+    [SerializeField] private float rowHeight = 56f;
+    [SerializeField] private float dotPreferredSize = 48f;
+    [SerializeField] private float dotMinSize = 22f;
+    [SerializeField] private float dotSpacing = 6f;
+    [SerializeField] private float fallbackWidth = 220f;
 
-void Start()
-{
-    CrisisDatabase.Initialize();
+    private RectTransform panelRect;
+    private RectTransform crisisRowRect;
+    private Button nextTurnButton;
 
-    if (crisisImages == null)
-        crisisImages = new Image[0];
+    private readonly List<Image> crisisImages = new List<Image>();
 
-    UpdateUI();
-} 
-
-    void Update()
+    void Start()
     {
-        if (presidentData == null) return;
+        CrisisDatabase.Initialize();
+        ResolveReferences();
+        EnsureCrisisRow();
         UpdateUI();
     }
 
-    public void UpdateUI()
-{
-    if (presidentData == null)
+    void LateUpdate()
     {
-        Debug.LogWarning("[PresidentDisplay] presidentData is NULL");
-        return;
+        if (presidentData == null)
+            return;
+
+        UpdateUI();
     }
 
-    if (hpText == null || insanityText == null || ageText == null || turnText == null)
+    private void ResolveReferences()
     {
-        Debug.LogWarning("hp, insanity, age or turn not specified");
-        return;
-    }
+        panelRect = transform as RectTransform;
 
-    hpText.text = $"HP: {presidentData.hp}";
-    insanityText.text = $"Insanity: {presidentData.insanity}";
-    ageText.text = $"Age: {presidentData.age}";
-    turnText.text = $"Turn: {presidentData.turnCount}";
-
-    hpText.color = Color.green;
-    insanityText.color = Color.magenta;
-    ageText.color = Color.cyan;
-    turnText.color = Color.yellow;
-
-    if (presidentData.activeCrises == null)
-        return;
-
-    if (crisisImages == null)
-        crisisImages = new Image[0];
-
-    // Если кризисов стало больше, чем есть UI-элементов — создаём новые
-    if (presidentData.activeCrises.Count > crisisImages.Length)
-    {
-        ExpandCrisisDots();
-    }
-
-    for (int i = 0; i < crisisImages.Length; i++)
-    {
-        if (crisisImages[i] == null)
-            continue;
-
-        if (i < presidentData.activeCrises.Count)
+        if (nextTurnButtonOverride != null)
         {
-            Crisis currentCrisis = presidentData.activeCrises[i];
-            crisisImages[i].gameObject.SetActive(true);
+            nextTurnButton = nextTurnButtonOverride;
+            return;
+        }
 
-            if (currentCrisis != null && currentCrisis.icon != null)
-                crisisImages[i].sprite = currentCrisis.icon;
+        Transform btn = transform.Find("NextTurnButton");
+        if (btn != null)
+        {
+            nextTurnButton = btn.GetComponent<Button>();
+            if (nextTurnButton != null)
+                return;
+        }
 
-            if (currentCrisis != null)
-                crisisImages[i].color = currentCrisis.color;
+        nextTurnButton = GetComponentInChildren<Button>(true);
+    }
+
+    private void EnsureCrisisRow()
+    {
+        if (crisisRowRect != null)
+            return;
+
+        Transform existing = transform.Find("RuntimeCrisisRow");
+        if (existing != null)
+        {
+            crisisRowRect = existing as RectTransform;
         }
         else
         {
-            crisisImages[i].gameObject.SetActive(false);
+            GameObject rowGO = new GameObject("RuntimeCrisisRow", typeof(RectTransform));
+            rowGO.transform.SetParent(transform, false);
+            crisisRowRect = rowGO.GetComponent<RectTransform>();
         }
+
+        // Удаляем всё, что может ломать ручную раскладку
+        LayoutGroup lg = crisisRowRect.GetComponent<LayoutGroup>();
+        if (lg != null) Destroy(lg);
+
+        ContentSizeFitter csf = crisisRowRect.GetComponent<ContentSizeFitter>();
+        if (csf != null) Destroy(csf);
+
+        HorizontalOrVerticalLayoutGroup hov = crisisRowRect.GetComponent<HorizontalOrVerticalLayoutGroup>();
+        if (hov != null) Destroy(hov);
+
+        GridLayoutGroup gl = crisisRowRect.GetComponent<GridLayoutGroup>();
+        if (gl != null) Destroy(gl);
+
+        crisisRowRect.anchorMin = new Vector2(0f, 1f);
+        crisisRowRect.anchorMax = new Vector2(0f, 1f);
+        crisisRowRect.pivot = new Vector2(0f, 0.5f);
+        crisisRowRect.SetAsLastSibling();
     }
 
-    SetupCrisisDotClickHandlers();
-}
-
-    /// <summary>
-    /// Генерирует кружки для кризисов программно (подобно способностям)
-    /// </summary>
-private void GenerateCrisisDots(int count)
-{
-    Transform crisisContainer = transform.Find("CrisisInfoRoot");
-
-    if (crisisContainer == null)
+    public void UpdateUI()
     {
-        crisisContainer = transform.Find("Crisis");
-
-        if (crisisContainer == null)
-            crisisContainer = transform.Find("Crises");
-    }
-
-    if (crisisContainer == null)
-        return;
-
-    foreach (Transform child in crisisContainer)
-    {
-        Destroy(child.gameObject);
-    }
-
-    List<Image> dots = new List<Image>();
-
-    for (int i = 0; i < count; i++)
-    {
-        GameObject dotGO = new GameObject($"CrisisDot_{i}");
-        dotGO.transform.SetParent(crisisContainer, false);
-
-        RectTransform rect = dotGO.AddComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(32f, 32f);
-
-        Image image = dotGO.AddComponent<Image>();
-        image.color = Color.white;
-
-        Button button = dotGO.AddComponent<Button>();
-        button.targetGraphic = image;
-
-        dots.Add(image);
-    }
-
-    crisisImages = dots.ToArray();
-    SetupCrisisDotClickHandlers();
-}
-
-    /// <summary>
-    /// Расширяет массив кризис-дотов когда активных кризисов больше чем дотов
-    /// </summary>
-    private void ExpandCrisisDots()
-{
-    Transform crisisContainer = transform.Find("CrisisInfoRoot");
-
-    if (crisisContainer == null)
-    {
-        crisisContainer = transform.Find("Crisis");
-
-        if (crisisContainer == null)
-            crisisContainer = transform.Find("Crises");
-    }
-
-    if (crisisContainer == null)
-        return;
-
-    List<Image> dotsList = new List<Image>(crisisImages);
-
-    int newDotsNeeded = presidentData.activeCrises.Count - crisisImages.Length;
-    for (int i = 0; i < newDotsNeeded; i++)
-    {
-        int index = crisisImages.Length + i;
-        GameObject dotGO = new GameObject($"CrisisDot_{index}");
-        dotGO.transform.SetParent(crisisContainer, false);
-
-        RectTransform rectTransform = dotGO.AddComponent<RectTransform>();
-        rectTransform.sizeDelta = new Vector2(50, 50);
-
-        Image img = dotGO.AddComponent<Image>();
-        img.color = Color.white;
-
-        Button btn = dotGO.AddComponent<Button>();
-        btn.targetGraphic = img;
-
-        dotsList.Add(img);
-    }
-
-    crisisImages = dotsList.ToArray();
-}
-
-    /// <summary>
-    /// Устанавливает click handlers для иконок кризисов
-    /// </summary>
-private void SetupCrisisDotClickHandlers()
-{
-    if (crisisImages == null || crisisImages.Length == 0)
-        return;
-
-    for (int i = 0; i < crisisImages.Length; i++)
-    {
-        if (crisisImages[i] == null)
-            continue;
-
-        int index = i;
-        Button btn = crisisImages[i].GetComponent<Button>();
-
-        if (btn == null)
+        if (presidentData == null)
         {
-            btn = crisisImages[i].gameObject.AddComponent<Button>();
-            btn.targetGraphic = crisisImages[i];
+            Debug.LogWarning("[PresidentDisplay] presidentData is NULL");
+            return;
         }
 
-        btn.onClick.RemoveAllListeners();
-        btn.onClick.AddListener(() => OnCrisisDotClicked(index));
-    }
-}
+        if (hpText == null || insanityText == null || ageText == null || turnText == null)
+        {
+            Debug.LogWarning("[PresidentDisplay] hpText / insanityText / ageText / turnText not assigned");
+            return;
+        }
 
-    /// <summary>
-    /// Обработчик клика по иконке кризиса
-    /// </summary>
+        hpText.text = $"HP: {presidentData.hp}";
+        insanityText.text = $"Insanity: {presidentData.insanity}";
+        ageText.text = $"Age: {presidentData.age}";
+        turnText.text = $"Turn: {presidentData.turnCount}";
+
+        hpText.color = Color.green;
+        insanityText.color = Color.magenta;
+        ageText.color = Color.cyan;
+        turnText.color = Color.yellow;
+
+        ResolveReferences();
+        EnsureCrisisRow();
+
+        PositionCrisisRow();
+        SyncCrisisIcons();
+        LayoutCrisisIconsSingleRow();
+    }
+
+    private void PositionCrisisRow()
+    {
+        if (panelRect == null || ageText == null || crisisRowRect == null)
+            return;
+
+        RectTransform ageRect = ageText.rectTransform;
+        RectTransform buttonRect = nextTurnButton != null ? nextTurnButton.GetComponent<RectTransform>() : null;
+
+        // Получаем правую границу Age в координатах панели
+        Vector3[] ageCorners = new Vector3[4];
+        ageRect.GetWorldCorners(ageCorners);
+        Vector2 ageRightLocal = panelRect.InverseTransformPoint(ageCorners[3]);
+
+        float left = ageRightLocal.x + gapAfterAge;
+        float right;
+
+        if (buttonRect != null)
+        {
+            Vector3[] btnCorners = new Vector3[4];
+            buttonRect.GetWorldCorners(btnCorners);
+            Vector2 btnLeftLocal = panelRect.InverseTransformPoint(btnCorners[0]);
+            right = btnLeftLocal.x - gapBeforeTurnButton;
+        }
+        else
+        {
+            right = left + fallbackWidth;
+        }
+
+        float width = Mathf.Max(60f, right - left);
+
+        // Вертикально выравниваем по Age
+        Vector2 ageCenterLocal = panelRect.InverseTransformPoint(ageRect.transform.position);
+
+        crisisRowRect.anchorMin = new Vector2(0f, 1f);
+        crisisRowRect.anchorMax = new Vector2(0f, 1f);
+        crisisRowRect.pivot = new Vector2(0f, 0.5f);
+        crisisRowRect.sizeDelta = new Vector2(width, rowHeight);
+        crisisRowRect.anchoredPosition = new Vector2(left, ageCenterLocal.y);
+    }
+
+    private void SyncCrisisIcons()
+    {
+        int needed = presidentData.activeCrises != null ? presidentData.activeCrises.Count : 0;
+
+        while (crisisImages.Count < needed)
+        {
+            GameObject dotGO = new GameObject($"CrisisDot_{crisisImages.Count}", typeof(RectTransform), typeof(Image), typeof(Button));
+            dotGO.transform.SetParent(crisisRowRect, false);
+
+            RectTransform rt = dotGO.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
+
+            Image img = dotGO.GetComponent<Image>();
+            img.color = Color.white;
+            img.raycastTarget = true;
+
+            Button btn = dotGO.GetComponent<Button>();
+            btn.targetGraphic = img;
+
+            crisisImages.Add(img);
+        }
+
+        for (int i = 0; i < crisisImages.Count; i++)
+        {
+            bool active = i < needed;
+            Image img = crisisImages[i];
+
+            if (img == null)
+                continue;
+
+            img.gameObject.SetActive(active);
+
+            if (!active)
+                continue;
+
+            Crisis crisis = presidentData.activeCrises[i];
+            img.sprite = crisis != null ? crisis.icon : null;
+            img.color = crisis != null ? crisis.color : Color.white;
+
+            int capturedIndex = i;
+            Button btn = img.GetComponent<Button>();
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OnCrisisDotClicked(capturedIndex));
+        }
+    }
+
+    private void LayoutCrisisIconsSingleRow()
+    {
+        if (crisisRowRect == null)
+            return;
+
+        int activeCount = 0;
+        for (int i = 0; i < crisisImages.Count; i++)
+        {
+            if (crisisImages[i] != null && crisisImages[i].gameObject.activeSelf)
+                activeCount++;
+        }
+
+        if (activeCount == 0)
+            return;
+
+        float width = crisisRowRect.rect.width;
+        if (width <= 0f)
+            width = crisisRowRect.sizeDelta.x;
+
+        float height = crisisRowRect.rect.height;
+        if (height <= 0f)
+            height = crisisRowRect.sizeDelta.y;
+
+        float totalSpacing = dotSpacing * (activeCount - 1);
+        float preferredTotal = activeCount * dotPreferredSize + totalSpacing;
+
+        float dotSize = dotPreferredSize;
+        if (preferredTotal > width)
+            dotSize = (width - totalSpacing) / activeCount;
+
+        dotSize = Mathf.Clamp(dotSize, dotMinSize, dotPreferredSize);
+        dotSize = Mathf.Min(dotSize, height);
+
+        float totalUsedWidth = activeCount * dotSize + totalSpacing;
+        float startX = Mathf.Max(0f, (width - totalUsedWidth) * 0.5f);
+
+        int visibleIndex = 0;
+        for (int i = 0; i < crisisImages.Count; i++)
+        {
+            Image img = crisisImages[i];
+            if (img == null || !img.gameObject.activeSelf)
+                continue;
+
+            RectTransform rt = img.rectTransform;
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.sizeDelta = new Vector2(dotSize, dotSize);
+            rt.anchoredPosition = new Vector2(startX + visibleIndex * (dotSize + dotSpacing), 0f);
+
+            visibleIndex++;
+        }
+    }
+
     private void OnCrisisDotClicked(int index)
     {
         if (presidentData == null || presidentData.activeCrises == null)
@@ -237,4 +302,3 @@ private void SetupCrisisDotClickHandlers()
         }
     }
 }
-

@@ -43,7 +43,7 @@ public class President : MonoBehaviour
     {
         CrisisDatabase.Initialize();
         UpdateUI();
-        
+
         if (candidateCardsController != null)
         {
             Transform gridContainer = candidateCardsController.transform.parent;
@@ -54,7 +54,7 @@ public class President : MonoBehaviour
                     actionSelectionStatusText = statusTextTrans.GetComponent<TextMeshProUGUI>();
             }
         }
-        
+
         if (actionSelectionStatusText == null)
         {
             actionSelectionStatusText = FindObjectOfType<TextMeshProUGUI>();
@@ -67,7 +67,7 @@ public class President : MonoBehaviour
                 }
             }
         }
-        
+
         UpdateActionSelectionStatus();
     }
 
@@ -83,13 +83,13 @@ public class President : MonoBehaviour
 
         bool allSelected = candidateCardsController.AreAllActionsSelected();
         bool isInRedFlash = Time.time < redFlashEndTime;
-        
+
         if (isInRedFlash)
         {
             actionSelectionStatusText.color = Color.red;
             return;
         }
-        
+
         if (allSelected)
         {
             actionSelectionStatusText.text = "";
@@ -174,7 +174,7 @@ public class President : MonoBehaviour
 
         Crisis newCrisis = null;
         bool shouldTriggerFinalCrisis = hp <= 0;
-        
+
         if (shouldTriggerFinalCrisis)
         {
             TriggerFinalCrisis();
@@ -299,9 +299,6 @@ public class President : MonoBehaviour
         activeCrises.Add(randomCrisis);
         LogToText($"Новый кризис: {randomCrisis.name}");
 
-        if (crisisTooltip != null)
-            crisisTooltip.ShowCrisis(randomCrisis);
-
         return randomCrisis;
     }
 
@@ -325,9 +322,6 @@ public class President : MonoBehaviour
 
         activeCrises.Add(crisis);
         LogToText($"Новый кризис: {crisis.name}");
-
-        if (crisisTooltip != null)
-            crisisTooltip.ShowCrisis(crisis);
 
         return crisis;
     }

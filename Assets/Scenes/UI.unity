@@ -3742,6 +3742,7 @@ MonoBehaviour:
   faceImage: {fileID: 0}
   clothesImage: {fileID: 0}
   headImage: {fileID: 0}
+  portraitButton: {fileID: 0}
   nameText: {fileID: 0}
   skillTexts: []
   playerActionDropdown: {fileID: 0}
@@ -7628,6 +7629,7 @@ MonoBehaviour:
   faceImage: {fileID: 0}
   clothesImage: {fileID: 0}
   headImage: {fileID: 0}
+  portraitButton: {fileID: 0}
   nameText: {fileID: 0}
   skillTexts: []
   playerActionDropdown: {fileID: 0}
@@ -8422,9 +8424,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 010df4e6a6daddd44a164e72e0b80d14, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterCardUI
-  faceImage: {fileID: 138328275}
-  clothesImage: {fileID: 543715718}
-  headImage: {fileID: 811514296}
+  faceImage: {fileID: 0}
+  clothesImage: {fileID: 0}
+  headImage: {fileID: 0}
+  portraitButton: {fileID: 0}
   nameText: {fileID: 0}
   skillTexts: []
   playerActionDropdown: {fileID: 0}
@@ -9548,13 +9551,13 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 890893901}
+  m_Father: {fileID: 1061634074}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 215.6828, y: 108.42}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -140, y: -25}
+  m_SizeDelta: {x: 200, y: 80}
+  m_Pivot: {x: 1, y: 0.5}
 --- !u!114 &724830623
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9562,7 +9565,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 724830621}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8a8695521f0d02e499659fee002a26c2, type: 3}
   m_Name: 
@@ -11385,7 +11388,6 @@ RectTransform:
   - {fileID: 1543279002}
   - {fileID: 997389311}
   - {fileID: 1456287051}
-  - {fileID: 724830622}
   - {fileID: 431126007}
   - {fileID: 1379180361}
   m_Father: {fileID: 1061634074}
@@ -11438,9 +11440,16 @@ MonoBehaviour:
   insanityText: {fileID: 997389312}
   ageText: {fileID: 1456287052}
   turnText: {fileID: 1379180362}
-  crisisImages: []
+  nextTurnButtonOverride: {fileID: 0}
   abilityTooltip: {fileID: 0}
   crisisTooltip: {fileID: 1229728474}
+  gapAfterAge: 18
+  gapBeforeTurnButton: 14
+  rowHeight: 42
+  dotPreferredSize: 48
+  dotMinSize: 8
+  dotSpacing: 4
+  fallbackWidth: 220
 --- !u!1 &894948106
 GameObject:
   m_ObjectHideFlags: 0
@@ -13328,6 +13337,7 @@ RectTransform:
   - {fileID: 1112017566}
   - {fileID: 564066653}
   - {fileID: 240630399}
+  - {fileID: 724830622}
   - {fileID: 890893901}
   - {fileID: 1448437438}
   - {fileID: 351168849}
@@ -13970,6 +13980,7 @@ MonoBehaviour:
   faceImage: {fileID: 0}
   clothesImage: {fileID: 0}
   headImage: {fileID: 0}
+  portraitButton: {fileID: 0}
   nameText: {fileID: 0}
   skillTexts: []
   playerActionDropdown: {fileID: 0}

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -14,21 +15,20 @@ public class CandidateCardsController : MonoBehaviour
     [Header("Tooltip для действий")]
     [SerializeField] private ActionTooltip actionTooltip;
 
-    private List<Candidate> candidates = new List<Candidate>();
-    private List<CharacterCardUI> cardUIs = new List<CharacterCardUI>();
-    private List<GameAction> allActions = new List<GameAction>();
+    private readonly List<Candidate> candidates = new List<Candidate>();
+    private readonly List<CharacterCardUI> cardUIs = new List<CharacterCardUI>();
+    private readonly List<GameAction> allActions = new List<GameAction>();
 
     private GameAction[] pendingActions;
     private Candidate[] pendingTargets;
-    
-    private int currentActionCardIndex = -1; // Для обработки отмены действия
 
-    private GameAction[] plannedCandidateActions;
-    private Candidate[] plannedCandidateTargets;
+    private int currentActionCardIndex = -1;
 
-    // Система выбора кандидата
     private bool isInCandidateSelection = false;
     private System.Action<Candidate> onCandidateSelected;
+
+    private readonly List<Button> portraitButtons = new List<Button>();
+    private readonly List<Selectable> disabledForTargetSelection = new List<Selectable>();
 
     private void Start()
     {
@@ -40,11 +40,8 @@ public class CandidateCardsController : MonoBehaviour
 
     private void Update()
     {
-        // Обработка ESC для отмены выбора кандидата
         if (isInCandidateSelection && Input.GetKeyDown(KeyCode.Escape))
-        {
             CancelCandidateSelection();
-        }
     }
 
     private IEnumerator GenerateCandidatesNextFrame()
@@ -58,6 +55,7 @@ public class CandidateCardsController : MonoBehaviour
     {
         cardUIs.Clear();
         candidates.Clear();
+        portraitButtons.Clear();
 
         for (int i = 0; i < transform.childCount; i++)
         {
@@ -80,7 +78,8 @@ public class CandidateCardsController : MonoBehaviour
         if (generator != null)
             generator.GenerateUICharacters();
 
-        allActions = ActionDatabase.GetAll();
+        allActions.Clear();
+        allActions.AddRange(ActionDatabase.GetAll());
 
         pendingActions = new GameAction[cardUIs.Count];
         pendingTargets = new Candidate[cardUIs.Count];
@@ -95,16 +94,13 @@ public class CandidateCardsController : MonoBehaviour
                     pendingActions[idx] = action;
                     pendingTargets[idx] = target;
                 }
+
+                currentActionCardIndex = -1;
             };
-            
-            // Обработка отмены - возвращаем dropdown текущей карты на 0
+
             actionTooltip.OnActionCancelled = () =>
             {
-                if (currentActionCardIndex >= 0 && currentActionCardIndex < cardUIs.Count)
-                {
-                    cardUIs[currentActionCardIndex].ResetActionDropdown();
-                    currentActionCardIndex = -1;
-                }
+                ResetCurrentActionSelection();
             };
         }
 
@@ -146,24 +142,18 @@ public class CandidateCardsController : MonoBehaviour
     {
         List<GameAction> actions = new List<GameAction>();
 
-        // Если кандидат в тюрьме - доступны только тюремные действия
         if (candidate.IsInPrison)
         {
-            // Добавляем только "Жить по закону" и "Жить по понятиям"
-            if (allActions != null)
+            foreach (var action in allActions)
             {
-                foreach (var action in allActions)
-                {
-                    if (action.name == "Жить по закону" || action.name == "Жить по понятиям")
-                        actions.Add(action);
-                }
+                if (action.name == "Жить по закону" || action.name == "Жить по понятиям")
+                    actions.Add(action);
             }
+
             return actions;
         }
 
-        // Обычный случай - добавляем все базовые действия
-        if (allActions != null)
-            actions.AddRange(allActions);
+        actions.AddRange(allActions);
 
         if (candidate != null)
         {
@@ -210,6 +200,8 @@ public class CandidateCardsController : MonoBehaviour
 
     private void ApplyAllCards()
     {
+        portraitButtons.Clear();
+
         for (int i = 0; i < cardUIs.Count && i < candidates.Count; i++)
         {
             Candidate candidate = candidates[i];
@@ -238,26 +230,23 @@ public class CandidateCardsController : MonoBehaviour
 
             int cardIndex = i;
             Candidate capturedCandidate = candidate;
-            
-            // Добавляем обработчик для клика на портрет (для выбора цели действия)
-            Image portraitImage = cardUIs[i].GetComponentInChildren<Image>();
-            if (portraitImage != null)
+
+            Button portraitButton = cardUIs[i].GetOrCreatePortraitButton();
+            if (portraitButton != null)
             {
-                Button portraitButton = portraitImage.GetComponent<Button>();
-                if (portraitButton == null)
-                    portraitButton = portraitImage.gameObject.AddComponent<Button>();
-                
                 portraitButton.onClick.RemoveAllListeners();
                 portraitButton.onClick.AddListener(() => OnCandidatePortraitClicked(capturedCandidate));
+                portraitButtons.Add(portraitButton);
             }
-            
+
             cardUIs[i].OnPlayerActionSelected = (actionIndex) =>
             {
-                // actionIndex 0 is "выберите действие" - do nothing
+                if (isInCandidateSelection)
+                    return;
+
                 if (actionIndex == 0)
                     return;
 
-                // Real action index is actionIndex - 1 (because of the default option)
                 int realActionIndex = actionIndex - 1;
                 List<GameAction> candidateActions = BuildActionListForCandidate(candidates[cardIndex]);
                 if (realActionIndex < 0 || realActionIndex >= candidateActions.Count)
@@ -269,8 +258,12 @@ public class CandidateCardsController : MonoBehaviour
 
                 if (actionTooltip != null)
                 {
-                    currentActionCardIndex = cardIndex; // Сохраняем индекс для обработки отмены
+                    currentActionCardIndex = cardIndex;
                     actionTooltip.Show(selectedAction, actor, target);
+                }
+                else
+                {
+                    Debug.LogWarning("[CandidateCardsController] ActionTooltip не привязан!");
                 }
             };
         }
@@ -338,7 +331,6 @@ public class CandidateCardsController : MonoBehaviour
         }
 
         ApplyAllCards();
-
         return changes;
     }
 
@@ -368,6 +360,9 @@ public class CandidateCardsController : MonoBehaviour
             "Зачитать по бумажке" => CandidateActions.ReadFromScript(actor),
             "Интриги" => CandidateActions.Intrigue(actor, target),
             "Дебаты" => CandidateActions.Debate(actor, target),
+            "Терпеть" => CandidateActions.Endure(actor),
+            "Жить по закону" => CandidateActions.LiveByLaw(actor),
+            "Жить по понятиям" => CandidateActions.LiveByCode(actor),
             "Написать пост в тг" => CandidateActions.PhilosopherPost(actor),
             "Сделать разоблачение" => CandidateActions.AntiCorruptionExpose(actor),
             "Поднять мятеж" => CandidateActions.RaiseMutiny(actor),
@@ -409,10 +404,6 @@ public class CandidateCardsController : MonoBehaviour
         return true;
     }
 
-    /// <summary>
-    /// Начинает процесс выбора кандидата. Все элементы кроме портретов становятся неинтерактивными.
-    /// По клику на портрет вызывается callback. По ESC отменяется.
-    /// </summary>
     public void StartCandidateSelection(System.Action<Candidate> callback)
     {
         if (isInCandidateSelection)
@@ -421,75 +412,61 @@ public class CandidateCardsController : MonoBehaviour
         isInCandidateSelection = true;
         onCandidateSelected = callback;
 
-        // Деактивируем все CanvasGroup в иерархии, кроме cardUIs
-        DeactivateAllUIExcept();
+        DeactivateAllUIExceptPortraits();
 
-        Debug.Log("[CandidateCardsController] Начат режим выбора кандидата. Нажмите ESC для отмены.");
+        Debug.Log("[CandidateCardsController] Начат режим выбора цели. Активны только портреты. ESC — отмена.");
     }
 
-    private void DeactivateAllUIExcept()
+    private void DeactivateAllUIExceptPortraits()
     {
-        // Деактивируем все Buttons в иерархии, кроме portrait buttons
-        Button[] allButtons = FindObjectsByType<Button>(FindObjectsSortMode.None);
-        foreach (var btn in allButtons)
+        disabledForTargetSelection.Clear();
+
+        Selectable[] allSelectables = FindObjectsByType<Selectable>(FindObjectsSortMode.None);
+        foreach (Selectable selectable in allSelectables)
         {
-            bool isPortraitButton = false;
-            
-            // Проверяем, является ли этот button портретом одной из карточек
-            foreach (var cardUI in cardUIs)
-            {
-                if (btn.transform.IsChildOf(cardUI.transform))
-                {
-                    isPortraitButton = true;
-                    break;
-                }
-            }
-            
-            if (!isPortraitButton)
-            {
-                btn.interactable = false;
-            }
+            if (selectable == null || !selectable.interactable)
+                continue;
+
+            bool keepEnabled = false;
+
+            if (selectable is Button button)
+                keepEnabled = portraitButtons.Contains(button);
+
+            if (keepEnabled)
+                continue;
+
+            selectable.interactable = false;
+            disabledForTargetSelection.Add(selectable);
         }
 
-        // Также деактивируем Toggles, InputFields и другие интерактивные элементы
-        Selectable[] allSelectables = FindObjectsByType<Selectable>(FindObjectsSortMode.None);
-        foreach (var selectable in allSelectables)
+        foreach (Button portraitButton in portraitButtons)
         {
-            if (selectable is Button)
-                continue; // Buttons уже обработаны
-
-            bool isInCardUI = false;
-            foreach (var cardUI in cardUIs)
-            {
-                if (selectable.transform.IsChildOf(cardUI.transform))
-                {
-                    isInCardUI = true;
-                    break;
-                }
-            }
-            
-            if (!isInCardUI)
-            {
-                selectable.interactable = false;
-            }
+            if (portraitButton != null)
+                portraitButton.interactable = true;
         }
     }
 
     private void ReactivateUI()
     {
-        // Включаем все Buttons обратно
-        Button[] allButtons = FindObjectsByType<Button>(FindObjectsSortMode.None);
-        foreach (var btn in allButtons)
+        for (int i = 0; i < disabledForTargetSelection.Count; i++)
         {
-            btn.interactable = true;
+            if (disabledForTargetSelection[i] != null)
+                disabledForTargetSelection[i].interactable = true;
         }
 
-        // Включаем остальные интерактивные элементы
-        Selectable[] allSelectables = FindObjectsByType<Selectable>(FindObjectsSortMode.None);
-        foreach (var selectable in allSelectables)
+        disabledForTargetSelection.Clear();
+    }
+
+    private void ResetCurrentActionSelection()
+    {
+        if (currentActionCardIndex >= 0 && currentActionCardIndex < cardUIs.Count)
         {
-            selectable.interactable = true;
+            pendingActions[currentActionCardIndex] = null;
+            pendingTargets[currentActionCardIndex] = null;
+            cardUIs[currentActionCardIndex].ResetActionDropdown();
         }
+
+        currentActionCardIndex = -1;
     }
 
     private void CancelCandidateSelection()
@@ -497,7 +474,9 @@ public class CandidateCardsController : MonoBehaviour
         isInCandidateSelection = false;
         onCandidateSelected = null;
         ReactivateUI();
-        Debug.Log("[CandidateCardsController] Выбор кандидата отменен (ESC).");
+        ResetCurrentActionSelection();
+
+        Debug.Log("[CandidateCardsController] Выбор цели отменён.");
     }
 
     private void OnCandidatePortraitClicked(Candidate candidate)
@@ -508,11 +487,12 @@ public class CandidateCardsController : MonoBehaviour
         isInCandidateSelection = false;
         var callback = onCandidateSelected;
         onCandidateSelected = null;
+
         ReactivateUI();
+        currentActionCardIndex = -1;
 
-        if (callback != null)
-            callback.Invoke(candidate);
+        callback?.Invoke(candidate);
 
-        Debug.Log($"[CandidateCardsController] Выбран кандидат: {candidate.Name}");
+        Debug.Log($"[CandidateCardsController] Выбрана цель: {candidate?.Name}");
     }
 }

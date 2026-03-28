@@ -22,7 +22,7 @@ public class CharacterData
 
     public string characterName;
     public string[] skills;
-    
+
     public Ability[] abilities;
     public int abilityCount;
 
@@ -42,6 +42,9 @@ public class CharacterCardUI : MonoBehaviour
     [SerializeField] private Image faceImage;
     [SerializeField] private Image clothesImage;
     [SerializeField] private Image headImage;
+
+    [Header("Optional portrait click target")]
+    [SerializeField] private Button portraitButton;
 
     [Header("Texts")]
     [SerializeField] private TMP_Text nameText;
@@ -100,7 +103,7 @@ public class CharacterCardUI : MonoBehaviour
     {
         if (nameText == null)
         {
-            TMP_Text[] allTexts = GetComponentsInChildren<TMP_Text>();
+            TMP_Text[] allTexts = GetComponentsInChildren<TMP_Text>(true);
             foreach (var txt in allTexts)
             {
                 if (txt.gameObject.name == "Name" || txt.gameObject.name.Contains("Name"))
@@ -115,15 +118,15 @@ public class CharacterCardUI : MonoBehaviour
         if (skillTexts == null || skillTexts.Length == 0)
         {
             Transform skillsContainer = transform.Find("Skills and Perks");
-            
+
             if (skillsContainer != null)
             {
                 List<TMP_Text> foundSkills = new List<TMP_Text>();
-                TMP_Text[] skillsInContainer = skillsContainer.GetComponentsInChildren<TMP_Text>();
-                
+                TMP_Text[] skillsInContainer = skillsContainer.GetComponentsInChildren<TMP_Text>(true);
+
                 foreach (var txt in skillsInContainer)
                 {
-                    if (!txt.gameObject.name.Contains("Description") && 
+                    if (!txt.gameObject.name.Contains("Description") &&
                         !txt.gameObject.name.Contains("Header") &&
                         !txt.gameObject.name.Contains("Label") &&
                         !txt.gameObject.name.Contains("Perk") &&
@@ -133,7 +136,7 @@ public class CharacterCardUI : MonoBehaviour
                         Debug.Log($"[CharacterCardUI] Found skill field: {txt.gameObject.name}");
                     }
                 }
-                
+
                 if (foundSkills.Count > 0)
                 {
                     skillTexts = foundSkills.ToArray();
@@ -146,21 +149,23 @@ public class CharacterCardUI : MonoBehaviour
             }
         }
 
-        if (playerActionDropdown == null)
+        if (playerActionDropdown == null || aiActionDropdown == null)
         {
             Transform actionsContainer = transform.Find("Actions");
             if (actionsContainer != null)
             {
-                TMP_Dropdown[] dropdowns = actionsContainer.GetComponentsInChildren<TMP_Dropdown>();
+                TMP_Dropdown[] dropdowns = actionsContainer.GetComponentsInChildren<TMP_Dropdown>(true);
 
                 foreach (var dd in dropdowns)
                 {
-                    if (dd.gameObject.name.Contains("Player") || dd.gameObject.name.Contains("player"))
+                    if (playerActionDropdown == null &&
+                        (dd.gameObject.name.Contains("Player") || dd.gameObject.name.Contains("player")))
                     {
                         playerActionDropdown = dd;
                         Debug.Log($"[CharacterCardUI] Found playerActionDropdown: {dd.gameObject.name}");
                     }
-                    else if (dd.gameObject.name.Contains("AI") || dd.gameObject.name.Contains("Ai") || dd.gameObject.name.Contains("ai"))
+                    else if (aiActionDropdown == null &&
+                             (dd.gameObject.name.Contains("AI") || dd.gameObject.name.Contains("Ai") || dd.gameObject.name.Contains("ai")))
                     {
                         aiActionDropdown = dd;
                         Debug.Log($"[CharacterCardUI] Found aiActionDropdown: {dd.gameObject.name}");
@@ -268,9 +273,8 @@ public class CharacterCardUI : MonoBehaviour
         playerActionDropdown.ClearOptions();
 
         List<string> options = new List<string>();
-        // Always add "выберите действие" as the default option at index 0
         options.Add("выберите действие");
-        
+
         for (int i = 0; i < currentPlayerActions.Length; i++)
             options.Add(currentPlayerActions[i].title);
 
@@ -281,18 +285,23 @@ public class CharacterCardUI : MonoBehaviour
         playerActionDropdown.value = 0;
         playerActionDropdown.RefreshShownValue();
 
+        if (playerActionDescriptionText != null)
+            playerActionDescriptionText.text = string.Empty;
+
         playerActionDropdown.onValueChanged.AddListener(OnPlayerActionChanged);
     }
 
     private void SetupAiDropdown(ActionOption[] actions)
     {
+        currentAiActions = actions ?? Array.Empty<ActionOption>();
+
         if (aiActionDropdown != null)
             aiActionDropdown.gameObject.SetActive(false);
 
         if (aiActionDescriptionText != null)
             aiActionDescriptionText.gameObject.SetActive(false);
 
-        string actionName = (actions != null && actions.Length > 0) ? actions[0].title : "—";
+        string actionName = (currentAiActions.Length > 0) ? currentAiActions[0].title : "—";
 
         Transform parent = aiActionDropdown != null
             ? aiActionDropdown.transform.parent
@@ -338,15 +347,49 @@ public class CharacterCardUI : MonoBehaviour
 
     private void OnPlayerActionChanged(int index)
     {
+        if (playerActionDescriptionText != null)
+        {
+            if (index <= 0 || index - 1 >= currentPlayerActions.Length)
+                playerActionDescriptionText.text = string.Empty;
+            else
+                playerActionDescriptionText.text = currentPlayerActions[index - 1].description ?? string.Empty;
+        }
+
         OnPlayerActionSelected?.Invoke(index);
     }
 
     public void ResetActionDropdown()
     {
-        if (playerActionDropdown != null)
-        {
-            playerActionDropdown.value = 0;
-            playerActionDropdown.RefreshShownValue();
-        }
+        if (playerActionDropdown == null)
+            return;
+
+        playerActionDropdown.onValueChanged.RemoveListener(OnPlayerActionChanged);
+        playerActionDropdown.value = 0;
+        playerActionDropdown.RefreshShownValue();
+
+        if (playerActionDescriptionText != null)
+            playerActionDescriptionText.text = string.Empty;
+
+        playerActionDropdown.onValueChanged.AddListener(OnPlayerActionChanged);
+    }
+
+    public Button GetOrCreatePortraitButton()
+    {
+        if (portraitButton != null)
+            return portraitButton;
+
+        Image targetImage = headImage != null ? headImage : (faceImage != null ? faceImage : clothesImage);
+        if (targetImage == null)
+            targetImage = GetComponentInChildren<Image>(true);
+
+        if (targetImage == null)
+            return null;
+
+        portraitButton = targetImage.GetComponent<Button>();
+        if (portraitButton == null)
+            portraitButton = targetImage.gameObject.AddComponent<Button>();
+
+        portraitButton.targetGraphic = targetImage;
+        return portraitButton;
     }
 }
