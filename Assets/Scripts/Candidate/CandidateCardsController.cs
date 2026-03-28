@@ -29,6 +29,8 @@ public class CandidateCardsController : MonoBehaviour
     // Система выбора кандидата
     private bool isInCandidateSelection = false;
     private System.Action<Candidate> onCandidateSelected;
+    private Candidate currentActor;
+    private string currentAbilityName;
 
     private void Start()
     {
@@ -391,48 +393,56 @@ public class CandidateCardsController : MonoBehaviour
     /// Начинает процесс выбора кандидата. Все элементы кроме портретов становятся неинтерактивными.
     /// По клику на портрет вызывается callback. По ESC отменяется.
     /// </summary>
-    public void StartCandidateSelection(System.Action<Candidate> callback)
+    public void StartCandidateSelection(System.Action<Candidate> callback, Candidate actor = null, string abilityName = null)
     {
         if (isInCandidateSelection)
             return;
 
         isInCandidateSelection = true;
         onCandidateSelected = callback;
+        currentActor = actor;
+        currentAbilityName = abilityName;
 
         // Деактивируем все CanvasGroup в иерархии, кроме cardUIs
         DeactivateAllUIExcept();
 
-        Debug.Log("[CandidateCardsController] Начат режим выбора кандидата. Нажмите ESC для отмены.");
-    }
+        // Сбрасываем подсветку у всех карточек
+            foreach (var cardUI in cardUIs)
+            {
+            cardUI.ResetSelectionHighlight();
+                }
 
+        Debug.Log("[CandidateCardsController] Начат режим выбора кандидата. Нажмите ESC для отмены.");
+            }
+            
     private void DeactivateAllUIExcept()
-    {
+            {
         // Деактивируем все Buttons в иерархии, кроме portrait buttons
         Button[] allButtons = FindObjectsByType<Button>(FindObjectsSortMode.None);
         foreach (var btn in allButtons)
         {
             bool isPortraitButton = false;
-            
+
             // Проверяем, является ли этот button портретом одной из карточек
             foreach (var cardUI in cardUIs)
             {
                 if (btn.transform.IsChildOf(cardUI.transform))
-                {
+        {
                     isPortraitButton = true;
                     break;
-                }
-            }
-            
+        }
+    }
+
             if (!isPortraitButton)
-            {
+    {
                 btn.interactable = false;
-            }
+    }
         }
 
         // Также деактивируем Toggles, InputFields и другие интерактивные элементы
         Selectable[] allSelectables = FindObjectsByType<Selectable>(FindObjectsSortMode.None);
         foreach (var selectable in allSelectables)
-        {
+    {
             if (selectable is Button)
                 continue; // Buttons уже обработаны
 
@@ -440,18 +450,18 @@ public class CandidateCardsController : MonoBehaviour
             foreach (var cardUI in cardUIs)
             {
                 if (selectable.transform.IsChildOf(cardUI.transform))
-                {
+        {
                     isInCardUI = true;
                     break;
-                }
-            }
-            
-            if (!isInCardUI)
-            {
-                selectable.interactable = false;
-            }
         }
+            }
+
+            if (!isInCardUI)
+    {
+                selectable.interactable = false;
     }
+    }
+}
 
     private void ReactivateUI()
     {
@@ -474,6 +484,12 @@ public class CandidateCardsController : MonoBehaviour
     {
         isInCandidateSelection = false;
         onCandidateSelected = null;
+
+        // Сбрасываем подсветку у всех карточек
+        foreach (var cardUI in cardUIs)
+        {
+            cardUI.ResetSelectionHighlight();
+        }
         ReactivateUI();
         Debug.Log("[CandidateCardsController] Выбор кандидата отменен (ESC).");
     }
@@ -482,6 +498,27 @@ public class CandidateCardsController : MonoBehaviour
     {
         if (!isInCandidateSelection)
             return;
+
+        // Проверка: нельзя выбрать себя
+        if (currentActor != null && candidate == currentActor)
+        {
+            Debug.Log("[CandidateCardsController] Нельзя выбрать себя!");
+            return;
+        }
+
+        // Подсвечиваем выбранную карточку
+        int candidateIndex = candidates.IndexOf(candidate);
+        if (candidateIndex >= 0 && candidateIndex < cardUIs.Count)
+        {
+            cardUIs[candidateIndex].SetSelectionHighlight(true);
+        }
+
+        // Обновляем метку цели для актора
+        int actorIndex = candidates.IndexOf(currentActor);
+        if (actorIndex >= 0 && actorIndex < cardUIs.Count)
+        {
+            cardUIs[actorIndex].SetTargetLabel(candidate.Name);
+        }
 
         isInCandidateSelection = false;
         var callback = onCandidateSelected;
@@ -493,4 +530,15 @@ public class CandidateCardsController : MonoBehaviour
 
         Debug.Log($"[CandidateCardsController] Выбран кандидат: {candidate.Name}");
     }
+
+    public bool IsInCandidateSelection()
+    {
+        return isInCandidateSelection;
+    }
+
+    public string GetCurrentAbilityName()
+    {
+        return currentAbilityName;
+    }
 }
+

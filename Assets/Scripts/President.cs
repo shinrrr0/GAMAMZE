@@ -92,6 +92,14 @@ public class President : MonoBehaviour
             return;
         }
         
+        // Если идет выбор кандидата, обновляем статус
+        if (candidateCardsController.IsInCandidateSelection() && !string.IsNullOrEmpty(candidateCardsController.GetCurrentAbilityName()))
+        {
+            actionSelectionStatusText.text = "выберите цель для " + candidateCardsController.GetCurrentAbilityName();
+            actionSelectionStatusText.color = Color.white;
+            return;
+        }
+
         // Обычное отображение
         if (allSelected)
         {
@@ -117,10 +125,9 @@ public class President : MonoBehaviour
         if (candidateCardsController != null && !candidateCardsController.AreAllActionsSelected())
         {
             LogToText("[President] Ошибка: не все действия выбраны!");
-            
+
             // Activate red flash for 0.5 seconds
             redFlashEndTime = Time.time + 0.5f;
-            
             return;
         }
 
@@ -149,7 +156,7 @@ public class President : MonoBehaviour
 
         Crisis newCrisis = null;
         bool shouldTriggerFinalCrisis = hp <= 0;
-        
+
         if (shouldTriggerFinalCrisis)
         {
             TriggerFinalCrisis();
@@ -304,3 +311,4 @@ public class President : MonoBehaviour
         System.IO.File.AppendAllText(Application.dataPath + "/game_log.txt", message + "\n");
     }
 }
+

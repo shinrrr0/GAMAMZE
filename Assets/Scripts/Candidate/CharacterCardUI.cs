@@ -65,6 +65,11 @@ public class CharacterCardUI : MonoBehaviour
     [Header("Perks")]
     [SerializeField] private AbilityTooltip abilityTooltip;
 
+    [Header("Selection Highlight")]
+    [SerializeField] private Image selectionHighlight;
+    [SerializeField] private Color defaultHighlightColor = new Color(0.95f, 0.9f, 0.85f, 0.5f);
+    [SerializeField] private Color selectedHighlightColor = new Color(1.0f, 0.5f, 0.0f, 0.7f);
+
     public Action<int> OnPlayerActionSelected;
 
     private ActionOption[] currentPlayerActions = Array.Empty<ActionOption>();
@@ -94,6 +99,9 @@ public class CharacterCardUI : MonoBehaviour
 
         SetupPlayerDropdown(data.playerActions);
         SetupAiDropdown(data.aiActions);
+
+        // Сбрасываем подсветку при применении данных
+        ResetSelectionHighlight();
     }
 
     private void AutoFindFields()
@@ -170,6 +178,21 @@ public class CharacterCardUI : MonoBehaviour
             else
             {
                 Debug.LogWarning("[CharacterCardUI] 'Actions' контейнер не найден!");
+            }
+        }
+
+        // Поиск selectionHighlight
+        if (selectionHighlight == null)
+        {
+            Image[] images = GetComponentsInChildren<Image>();
+            foreach (var img in images)
+            {
+                if (img.gameObject.name.Contains("Highlight") || img.gameObject.name.Contains("Background"))
+                {
+                    selectionHighlight = img;
+                    Debug.Log($"[CharacterCardUI] Found selectionHighlight: {img.gameObject.name}");
+                    break;
+                }
             }
         }
 
@@ -260,7 +283,6 @@ public class CharacterCardUI : MonoBehaviour
     private void SetupPlayerDropdown(ActionOption[] actions)
     {
         currentPlayerActions = actions ?? Array.Empty<ActionOption>();
-
         if (playerActionDropdown == null)
             return;
 
@@ -270,13 +292,12 @@ public class CharacterCardUI : MonoBehaviour
         List<string> options = new List<string>();
         // Always add "выберите действие" as the default option at index 0
         options.Add("выберите действие");
-        
+
         for (int i = 0; i < currentPlayerActions.Length; i++)
             options.Add(currentPlayerActions[i].title);
 
         if (options.Count <= 1)
             options.Add("-");
-
         playerActionDropdown.AddOptions(options);
         playerActionDropdown.value = 0;
         playerActionDropdown.RefreshShownValue();
@@ -349,4 +370,56 @@ public class CharacterCardUI : MonoBehaviour
             playerActionDropdown.RefreshShownValue();
         }
     }
+
+    public void SetSelectionHighlight(bool isSelected)
+    {
+        if (selectionHighlight != null)
+        {
+            selectionHighlight.color = isSelected ? selectedHighlightColor : defaultHighlightColor;
+        }
+    }
+
+    public void ResetSelectionHighlight()
+    {
+        if (selectionHighlight != null)
+        {
+            selectionHighlight.color = defaultHighlightColor;
+        }
+    }
+
+    public void SetTargetLabel(string targetName)
+    {
+        Transform parent = aiActionDropdown != null
+            ? aiActionDropdown.transform.parent
+            : transform;
+
+        TMP_Text aiLabel = null;
+        Transform existing = parent.Find("AiActionLabel");
+        if (existing != null)
+            aiLabel = existing.GetComponent<TMP_Text>();
+
+        if (aiLabel != null)
+        {
+            aiLabel.text = "Цель: " + targetName;
+        }
+        else
+        {
+            // Создаем метку, если её нет
+            GameObject labelGO = new GameObject("AiActionLabel");
+            labelGO.transform.SetParent(parent, false);
+
+            RectTransform dstRect = labelGO.AddComponent<RectTransform>();
+            dstRect.anchorMin = new Vector2(0f, 0f);
+            dstRect.anchorMax = new Vector2(1f, 0.5f);
+            dstRect.offsetMin = Vector2.zero;
+            dstRect.offsetMax = Vector2.zero;
+
+            aiLabel = labelGO.AddComponent<TextMeshProUGUI>();
+            aiLabel.fontSize = 16;
+            aiLabel.color = new Color(0.85f, 0.85f, 0.85f, 1f);
+            aiLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            aiLabel.text = "Цель: " + targetName;
+        }
+    }
 }
+
