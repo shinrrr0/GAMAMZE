@@ -46,7 +46,9 @@ public class CandidateTurnChange
             sb.AppendLine($"  Проверка: {playerActionResult.statChecked} ({playerActionResult.statValue})");
             sb.AppendLine($"  Бросок d10: {playerActionResult.diceRoll} → Итого: {playerActionResult.checkTotal}");
             sb.AppendLine($"  {playerActionResult.outcomeText}");
-            sb.AppendLine($"  Результат: {playerActionResult.resultDescription}");
+            sb.AppendLine($"  Сюжет: {(string.IsNullOrWhiteSpace(playerActionResult.narrativeDescription) ? playerActionResult.resultDescription : playerActionResult.narrativeDescription)}");
+            if (!string.IsNullOrWhiteSpace(playerActionResult.mechanicsDescription))
+                sb.AppendLine($"  <color=#A0A0A0>Разбор: {playerActionResult.mechanicsDescription}</color>");
             sb.AppendLine();
         }
 
@@ -57,7 +59,9 @@ public class CandidateTurnChange
             sb.AppendLine($"  Проверка: {aiActionResult.statChecked} ({aiActionResult.statValue})");
             sb.AppendLine($"  Бросок d10: {aiActionResult.diceRoll} → Итого: {aiActionResult.checkTotal}");
             sb.AppendLine($"  {aiActionResult.outcomeText}");
-            sb.AppendLine($"  Результат: {aiActionResult.resultDescription}");
+            sb.AppendLine($"  Сюжет: {(string.IsNullOrWhiteSpace(aiActionResult.narrativeDescription) ? aiActionResult.resultDescription : aiActionResult.narrativeDescription)}");
+            if (!string.IsNullOrWhiteSpace(aiActionResult.mechanicsDescription))
+                sb.AppendLine($"  <color=#A0A0A0>Разбор: {aiActionResult.mechanicsDescription}</color>");
             sb.AppendLine();
         }
 
@@ -215,7 +219,7 @@ public class TurnSummaryPopup : MonoBehaviour
                 titleText.fontSize = 34;
                 titleText.alignment = TextAlignmentOptions.TopLeft;
                 titleText.color = Color.white;
-                titleText.enableWordWrapping = false;
+                titleText.textWrappingMode = TextWrappingModes.NoWrap;
             }
             else
             {
@@ -336,7 +340,7 @@ public class TurnSummaryPopup : MonoBehaviour
             bodyText.fontSize = 24;
             bodyText.color = Color.white;
             bodyText.alignment = TextAlignmentOptions.TopLeft;
-            bodyText.enableWordWrapping = true;
+            bodyText.textWrappingMode = TextWrappingModes.Normal;
             bodyText.overflowMode = TextOverflowModes.Overflow;
 
             ContentSizeFitter bodyFitter = bodyGO.GetComponent<ContentSizeFitter>();
@@ -444,7 +448,11 @@ public class TurnSummaryPopup : MonoBehaviour
             sb.AppendLine();
 
             if (newCrisis != null)
+            {
                 sb.AppendLine($"- Новый кризис: {newCrisis.name}");
+                if (!string.IsNullOrWhiteSpace(newCrisis.description))
+                    sb.AppendLine($"  {newCrisis.description.Replace("\n", "\n  ")}");
+            }
             else
                 sb.AppendLine("- новых кризисов нет");
 

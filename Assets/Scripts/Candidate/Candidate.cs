@@ -299,10 +299,10 @@ public class Candidate
                 case "Воровство":
                     ability.SetFunction(() => CandidateActions.Steal(this));
                     break;
-                case "Лобирование":
+                case "Лоббирование":
                     ability.SetFunction(() => CandidateActions.Lobby(this));
                     break;
-                case "Обращение важное":
+                case "Образование":
                     ability.SetFunction(() => CandidateActions.MajorAppeal(this, 0));
                     break;
                 case "Интриги":

@@ -161,9 +161,28 @@ public class CandidateCardsController : MonoBehaviour
             return actions;
         }
 
-        // Обычный случай - добавляем все действия
+        // Обычный случай - добавляем все базовые действия
         if (allActions != null)
             actions.AddRange(allActions);
+
+        if (candidate != null)
+        {
+            if (candidate.Willpower >= 5)
+            {
+                actions.Add(new GameAction(
+                    "Экстренное урегулирование (социальное)",
+                    "Жёсткое вмешательство в общественную повестку и попытка быстро сбить самый опасный социальный кризис. Механика: ВОЛ; провал — -1 ВОЛ, успех — убрать худший социальный кризис, крит — убрать его и +1 ВОЛ.",
+                    (actor, target) => CandidateActions.ResolveSocialRegulation(actor)));
+            }
+
+            if (candidate.Intellect >= 5)
+            {
+                actions.Add(new GameAction(
+                    "Экстренное урегулирование (экономическое)",
+                    "Пакет срочных мер для цифр, поставок и чиновников с очень нервными лицами. Механика: ИНТ; провал — -1 ИНТ, успех — убрать худший экономический кризис, крит — убрать его и +1 ИНТ.",
+                    (actor, target) => CandidateActions.ResolveEconomicRegulation(actor)));
+            }
+        }
 
         GameAction classAction = ActionDatabase.GetClassAction(candidate);
         if (classAction != null)
@@ -342,8 +361,11 @@ public class CandidateCardsController : MonoBehaviour
         return actionName switch
         {
             "Воровство" => CandidateActions.Steal(actor),
-            "Лобирование" => CandidateActions.Lobby(actor),
-            "Обращение важное" => CandidateActions.MajorAppeal(actor, 0),
+            "Лоббирование" => CandidateActions.Lobby(actor),
+            "Образование" => CandidateActions.MajorAppeal(actor, 0),
+            "Экстренное урегулирование (социальное)" => CandidateActions.ResolveSocialRegulation(actor),
+            "Экстренное урегулирование (экономическое)" => CandidateActions.ResolveEconomicRegulation(actor),
+            "Зачитать по бумажке" => CandidateActions.ReadFromScript(actor),
             "Интриги" => CandidateActions.Intrigue(actor, target),
             "Дебаты" => CandidateActions.Debate(actor, target),
             "Написать пост в тг" => CandidateActions.PhilosopherPost(actor),
