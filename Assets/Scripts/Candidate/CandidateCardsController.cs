@@ -22,10 +22,11 @@ public class CandidateCardsController : MonoBehaviour
     private GameAction[] pendingActions;
     private Candidate[] pendingTargets;
 
-    private int currentActionCardIndex = -1;
+        private int currentActionCardIndex = -1;
 
     private bool isInCandidateSelection = false;
     private System.Action<Candidate> onCandidateSelected;
+    private Candidate excludedCandidate = null;
 
     private readonly List<Button> portraitButtons = new List<Button>();
     private readonly List<Selectable> disabledForTargetSelection = new List<Selectable>();
@@ -206,7 +207,7 @@ public class CandidateCardsController : MonoBehaviour
         {
             Candidate candidate = candidates[i];
 
-            CharacterData data = new CharacterData
+                        CharacterData data = new CharacterData
             {
                 characterName = candidate.IsInPrison ? $"{candidate.Name} [ТЮРЬМА]" : candidate.Name,
                 skills = new[]
@@ -222,6 +223,7 @@ public class CandidateCardsController : MonoBehaviour
                 insanity = candidate.Intellect,
                 age = candidate.Age,
                 candidate = candidate,
+                target = pendingTargets != null && i < pendingTargets.Length ? pendingTargets[i] : null,
                 playerActions = BuildPlayerActions(candidate),
                 aiActions = new ActionOption[0]
             };
@@ -404,13 +406,14 @@ public class CandidateCardsController : MonoBehaviour
         return true;
     }
 
-    public void StartCandidateSelection(System.Action<Candidate> callback)
+        public void StartCandidateSelection(Candidate excludedCandidate, System.Action<Candidate> callback)
     {
         if (isInCandidateSelection)
             return;
 
         isInCandidateSelection = true;
         onCandidateSelected = callback;
+        this.excludedCandidate = excludedCandidate;
 
         DeactivateAllUIExceptPortraits();
 
@@ -469,24 +472,33 @@ public class CandidateCardsController : MonoBehaviour
         currentActionCardIndex = -1;
     }
 
-    private void CancelCandidateSelection()
+        private void CancelCandidateSelection()
     {
         isInCandidateSelection = false;
         onCandidateSelected = null;
+        excludedCandidate = null;
         ReactivateUI();
         ResetCurrentActionSelection();
 
         Debug.Log("[CandidateCardsController] Выбор цели отменён.");
     }
 
-    private void OnCandidatePortraitClicked(Candidate candidate)
+        private void OnCandidatePortraitClicked(Candidate candidate)
     {
         if (!isInCandidateSelection)
             return;
 
+        // Prevent selecting the excluded candidate (oneself)
+        if (excludedCandidate != null && candidate != null && candidate.Name == excludedCandidate.Name)
+        {
+            Debug.Log($"[CandidateCardsController] Нельзя выбрать себя целью! {candidate.Name}");
+            return;
+        }
+
         isInCandidateSelection = false;
         var callback = onCandidateSelected;
         onCandidateSelected = null;
+        excludedCandidate = null;
 
         ReactivateUI();
         currentActionCardIndex = -1;

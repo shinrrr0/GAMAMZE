@@ -80,13 +80,14 @@ public class ActionTooltip : MonoBehaviour
             if (candidateCardsController != null)
             {
                 Close(); // Закрываем tooltip перед началом выбора
-                candidateCardsController.StartCandidateSelection((selectedTarget) =>
-                {
-                    currentTarget = selectedTarget;
-                    // Теперь сохраняем выбор через колбэк
-                    if (currentAction != null)
-                        OnActionConfirmed?.Invoke(currentAction, currentActor, currentTarget);
-                });
+                                // Передаем currentActor, чтобы нельзя было выбрать себя
+                                candidateCardsController.StartCandidateSelection(currentActor, (selectedTarget) =>
+                                {
+                                    currentTarget = selectedTarget;
+                                    // Теперь сохраняем выбор через колбэк
+                                    if (currentAction != null)
+                                        OnActionConfirmed?.Invoke(currentAction, currentActor, currentTarget);
+                                });
             }
             else
             {

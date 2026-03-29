@@ -26,7 +26,7 @@ public class CharacterData
     public Ability[] abilities;
     public int abilityCount;
 
-    public ActionOption[] playerActions;
+            public ActionOption[] playerActions;
     public ActionOption[] aiActions;
 
     public int hp;
@@ -34,6 +34,7 @@ public class CharacterData
     public int age;
 
     public Candidate candidate;
+    public Candidate target;
 }
 
 public class CharacterCardUI : MonoBehaviour
@@ -70,8 +71,9 @@ public class CharacterCardUI : MonoBehaviour
 
     public Action<int> OnPlayerActionSelected;
 
-    private ActionOption[] currentPlayerActions = Array.Empty<ActionOption>();
+                    private ActionOption[] currentPlayerActions = Array.Empty<ActionOption>();
     private ActionOption[] currentAiActions = Array.Empty<ActionOption>();
+    private Candidate currentTarget = null;
     private bool fieldsSearched = false;
 
     public void Apply(CharacterData data)
@@ -89,12 +91,13 @@ public class CharacterCardUI : MonoBehaviour
         if (nameText != null)
             nameText.text = data.characterName ?? string.Empty;
 
-        ApplySkills(data.skills);
+                                ApplySkills(data.skills);
         ApplyPerks(data.abilities);
         ApplyDots(hpDots, data.hp);
         ApplyDots(insanityDots, data.insanity);
         ApplyDots(ageDots, data.age);
 
+        currentTarget = data.target;
         SetupPlayerDropdown(data.playerActions);
         SetupAiDropdown(data.aiActions);
     }
@@ -301,7 +304,8 @@ public class CharacterCardUI : MonoBehaviour
         if (aiActionDescriptionText != null)
             aiActionDescriptionText.gameObject.SetActive(false);
 
-        string actionName = (currentAiActions.Length > 0) ? currentAiActions[0].title : "—";
+                string actionName = (currentAiActions.Length > 0) ? currentAiActions[0].title : "—";
+        string targetInfo = (currentTarget != null) ? $" (Цель: {currentTarget.Name})" : "";
 
         Transform parent = aiActionDropdown != null
             ? aiActionDropdown.transform.parent
@@ -342,7 +346,7 @@ public class CharacterCardUI : MonoBehaviour
             aiLabel.alignment = TextAlignmentOptions.MidlineLeft;
         }
 
-        aiLabel.text = "Кандидат предпримет: " + actionName;
+        aiLabel.text = "Кандидат предпримет: " + actionName + targetInfo;
     }
 
     private void OnPlayerActionChanged(int index)

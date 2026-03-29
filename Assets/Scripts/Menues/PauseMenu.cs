@@ -155,12 +155,12 @@ public class PauseMenu : MonoBehaviour
         if (isPaused)
         {
             Time.timeScale = 0f;
-            mixer.SetFloat("LowpassCutoff", 800f); // приглушаем
+            mixer.SetFloat("LowpassCutoff", 800f); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         }
         else
         {
             Time.timeScale = 1f;
-            mixer.SetFloat("LowpassCutoff", 22000f); // норм звук
+            mixer.SetFloat("LowpassCutoff", 22000f); // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         }
     }
 
