@@ -1,6 +1,7 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using UnityEngine.Audio;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 public class PauseMenu : MonoBehaviour
 {
@@ -93,6 +94,7 @@ public class PauseMenu : MonoBehaviour
         PauseGameState();
     }
 
+
     public void CloseSettings()
     {
         isPaused = true;
@@ -144,4 +146,22 @@ public class PauseMenu : MonoBehaviour
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
     }
+    public AudioMixer mixer;
+
+    public void TogglePause()
+    {
+        isPaused = !isPaused;
+
+        if (isPaused)
+        {
+            Time.timeScale = 0f;
+            mixer.SetFloat("LowpassCutoff", 800f); // приглушаем
+        }
+        else
+        {
+            Time.timeScale = 1f;
+            mixer.SetFloat("LowpassCutoff", 22000f); // норм звук
+        }
+    }
+
 }
