@@ -2,7 +2,6 @@ using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine.UI;
-using System.Linq;
 
 public class President : MonoBehaviour
 {
@@ -28,8 +27,6 @@ public class President : MonoBehaviour
     private TextMeshProUGUI actionSelectionStatusText;
     private bool finalCrisisTriggered = false;
     private float redFlashEndTime = 0f;
-    private string exclusiveCrisisThisTurn;
-    private bool forceHungerNextTurn;
     public bool LastTurnHadNewCrisis { get; private set; }
 
     public CandidateCardsController CandidateController => candidateCardsController;
@@ -43,7 +40,8 @@ public class President : MonoBehaviour
     {
         CrisisDatabase.Initialize();
         UpdateUI();
-
+        
+        // Find Status Text element (should be in the same Grid container as CandidateCardsController)
         if (candidateCardsController != null)
         {
             Transform gridContainer = candidateCardsController.transform.parent;
@@ -54,9 +52,10 @@ public class President : MonoBehaviour
                     actionSelectionStatusText = statusTextTrans.GetComponent<TextMeshProUGUI>();
             }
         }
-
+        
         if (actionSelectionStatusText == null)
         {
+            // Fallback: try to find it in the entire scene
             actionSelectionStatusText = FindObjectOfType<TextMeshProUGUI>();
             foreach (var txt in FindObjectsOfType<TextMeshProUGUI>())
             {
@@ -67,7 +66,7 @@ public class President : MonoBehaviour
                 }
             }
         }
-
+        
         UpdateActionSelectionStatus();
     }
 
@@ -82,14 +81,26 @@ public class President : MonoBehaviour
             return;
 
         bool allSelected = candidateCardsController.AreAllActionsSelected();
+        
+        // Проверяем, находимся ли мы в красной вспышке
         bool isInRedFlash = Time.time < redFlashEndTime;
-
+        
         if (isInRedFlash)
         {
+            // Красный свет - не выполняем обновление
             actionSelectionStatusText.color = Color.red;
             return;
         }
+        
+        // Если идет выбор кандидата, обновляем статус
+        if (candidateCardsController.IsInCandidateSelection() && !string.IsNullOrEmpty(candidateCardsController.GetCurrentAbilityName()))
+        {
+            actionSelectionStatusText.text = "выберите цель для " + candidateCardsController.GetCurrentAbilityName();
+            actionSelectionStatusText.color = Color.white;
+            return;
+        }
 
+        // Обычное отображение
         if (allSelected)
         {
             actionSelectionStatusText.text = "";
@@ -102,37 +113,6 @@ public class President : MonoBehaviour
         }
     }
 
-    public void RequestExclusiveCrisisThisTurn(string crisisName)
-    {
-        if (string.IsNullOrWhiteSpace(crisisName))
-            return;
-
-        exclusiveCrisisThisTurn = crisisName;
-    }
-
-    public Crisis GetWorstCrisis(CrisisCategory category)
-    {
-        return activeCrises
-            .Where(c => c != null && c.category == category)
-            .OrderByDescending(c => c.percentPenalty > 0 ? 1 : 0)
-            .ThenByDescending(c => c.percentPenalty)
-            .ThenByDescending(c => c.hpPenalty)
-            .ThenByDescending(c => c.otherPenalty)
-            .ThenByDescending(c => c.turnsActive)
-            .FirstOrDefault();
-    }
-
-    public bool RemoveActiveCrisis(Crisis crisis)
-    {
-        if (crisis == null)
-            return false;
-
-        bool removed = activeCrises.Remove(crisis);
-        if (removed)
-            LogToText($"Кризис устранён: {crisis.name}");
-        return removed;
-    }
-
     public void NextTurn()
     {
         if (finalCrisisTriggered)
@@ -141,13 +121,17 @@ public class President : MonoBehaviour
             return;
         }
 
+        // Check if all actions are selected
         if (candidateCardsController != null && !candidateCardsController.AreAllActionsSelected())
         {
             LogToText("[President] Ошибка: не все действия выбраны!");
+
+            // Activate red flash for 0.5 seconds
             redFlashEndTime = Time.time + 0.5f;
             return;
         }
 
+        // Reset red flash timer if we got here
         redFlashEndTime = 0f;
 
         int hpBefore = hp;
@@ -170,8 +154,6 @@ public class President : MonoBehaviour
 
         insanity += 1;
 
-        ProcessExistingCrises();
-
         Crisis newCrisis = null;
         bool shouldTriggerFinalCrisis = hp <= 0;
 
@@ -182,13 +164,25 @@ public class President : MonoBehaviour
         }
         else
         {
-            bool noCrisisForced = ConsumeNoCrisisFlags();
-            newCrisis = TryGenerateCrisis(noCrisisForced);
-            LastTurnHadNewCrisis = newCrisis != null;
-        }
+            bool noCrisisForced = false;
+            if (candidateCardsController != null)
+            {
+                foreach (Candidate candidate in candidateCardsController.GetCandidates())
+                {
+                    if (candidate != null && candidate.NoCrisisNextTurn)
+                    {
+                        noCrisisForced = true;
+                        candidate.NoCrisisNextTurn = false;
+                    }
+                }
+            }
 
-        UpdateForcedHungerFlag();
-        exclusiveCrisisThisTurn = null;
+            if (!noCrisisForced && Random.Range(0, 101) <= 15 + (insanity * 2))
+            {
+                newCrisis = AddRandomCrisis();
+                LastTurnHadNewCrisis = newCrisis != null;
+            }
+        }
 
         if (candidateCardsController != null)
             candidateCardsController.ResolveEndOfTurnEffects(LastTurnHadNewCrisis);
@@ -212,118 +206,23 @@ public class President : MonoBehaviour
         CheckGameOver();
     }
 
-    private bool ConsumeNoCrisisFlags()
-    {
-        bool noCrisisForced = false;
-        if (candidateCardsController == null)
-            return false;
-
-        foreach (Candidate candidate in candidateCardsController.GetCandidates())
-        {
-            if (candidate != null && candidate.NoCrisisNextTurn)
-            {
-                noCrisisForced = true;
-                candidate.NoCrisisNextTurn = false;
-            }
-        }
-
-        return noCrisisForced;
-    }
-
-    private void ProcessExistingCrises()
-    {
-        for (int i = activeCrises.Count - 1; i >= 0; i--)
-        {
-            Crisis crisis = activeCrises[i];
-            if (crisis == null)
-            {
-                activeCrises.RemoveAt(i);
-                continue;
-            }
-
-            crisis.AdvanceTurn();
-            if (crisis.IsExpired())
-            {
-                LogToText($"Кризис завершился: {crisis.name}");
-                activeCrises.RemoveAt(i);
-            }
-        }
-    }
-
-    private void UpdateForcedHungerFlag()
-    {
-        Crisis poorHarvest = activeCrises.FirstOrDefault(c => c != null && c.name == "Плохой урожай");
-        forceHungerNextTurn = poorHarvest != null && poorHarvest.turnsActive > 2;
-    }
-
-    private Crisis TryGenerateCrisis(bool noCrisisForced)
-    {
-        if (!string.IsNullOrWhiteSpace(exclusiveCrisisThisTurn))
-            return AddCrisisByName(exclusiveCrisisThisTurn);
-
-        if (forceHungerNextTurn)
-        {
-            forceHungerNextTurn = false;
-            return AddCrisisByName("Голод");
-        }
-
-        if (noCrisisForced)
-            return null;
-
-        int activeCount = activeCrises.Count;
-        if (activeCount >= 5)
-            return null;
-
-        int crisisChance = 15 + (insanity * 2);
-        if (activeCount >= 4)
-            crisisChance -= 15;
-
-        crisisChance = Mathf.Clamp(crisisChance, 0, 100);
-        if (Random.Range(0, 101) > crisisChance)
-            return null;
-
-        return AddRandomCrisis();
-    }
-
     private Crisis AddRandomCrisis()
     {
-        HashSet<string> activeNames = new HashSet<string>(activeCrises.Where(c => c != null).Select(c => c.name));
-        Crisis randomCrisis = CrisisDatabase.GetRandomCrisisExcluding(activeNames);
+        Crisis randomCrisis = CrisisDatabase.GetRandomCrisis();
 
         if (randomCrisis == null)
         {
-            Debug.LogWarning("[President] Нет доступных кризисов для случайного появления.");
+            Debug.LogError("[President] CrisisDatabase вернул null!");
             return null;
         }
 
         activeCrises.Add(randomCrisis);
         LogToText($"Новый кризис: {randomCrisis.name}");
 
+        if (crisisTooltip != null)
+            crisisTooltip.ShowCrisis(randomCrisis);
+
         return randomCrisis;
-    }
-
-    private Crisis AddCrisisByName(string crisisName)
-    {
-        if (string.IsNullOrWhiteSpace(crisisName))
-            return null;
-
-        if (activeCrises.Any(c => c != null && c.name == crisisName))
-        {
-            LogToText($"Кризис '{crisisName}' уже активен, новый не появляется.");
-            return null;
-        }
-
-        Crisis crisis = CrisisDatabase.CreateRuntimeCopyByName(crisisName);
-        if (crisis == null)
-        {
-            Debug.LogWarning($"[President] Не найден кризис '{crisisName}'.");
-            return null;
-        }
-
-        activeCrises.Add(crisis);
-        LogToText($"Новый кризис: {crisis.name}");
-
-        return crisis;
     }
 
     private void TriggerFinalCrisis()
@@ -333,7 +232,7 @@ public class President : MonoBehaviour
 
         finalCrisisTriggered = true;
 
-        Crisis finalCrisis = CrisisDatabase.GetRandomCrisisExcluding(new HashSet<string>());
+        Crisis finalCrisis = CrisisDatabase.GetRandomCrisis();
         if (finalCrisis == null)
         {
             Debug.LogError("[President] Не удалось получить кризис для финального события.");
@@ -412,3 +311,4 @@ public class President : MonoBehaviour
         System.IO.File.AppendAllText(Application.dataPath + "/game_log.txt", message + "\n");
     }
 }
+

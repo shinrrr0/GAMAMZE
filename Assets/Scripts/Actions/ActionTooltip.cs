@@ -86,7 +86,7 @@ public class ActionTooltip : MonoBehaviour
                     // Теперь сохраняем выбор через колбэк
                     if (currentAction != null)
                         OnActionConfirmed?.Invoke(currentAction, currentActor, currentTarget);
-                });
+                }, currentActor, currentAction.name);
             }
             else
             {

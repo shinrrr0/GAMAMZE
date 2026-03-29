@@ -145,7 +145,6 @@ public class CrisisTooltip : MonoBehaviour
         SetFinalResultText(BuildResultText(result, playerWon));
     }
 
-
     public void HideFinalCandidateMenu()
     {
         HideFinalMenu();
@@ -266,3 +265,4 @@ public class CrisisTooltip : MonoBehaviour
         return $"{candidate.Name} | ВЛН {candidate.Influence} | ИНТ {candidate.Intellect} | ВОЛ {candidate.Willpower} | ФИН {candidate.Money}";
     }
 }
+
